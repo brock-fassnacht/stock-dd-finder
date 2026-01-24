@@ -24,4 +24,3 @@ A web app that identifies high-quality stock research contributors on Reddit usi
 3. Install frontend: `cd frontend && npm install`
 4. Run backend: `uvicorn app.main:app --reload`
 5. Run frontend: `npm run dev`
-
