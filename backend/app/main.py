@@ -4,10 +4,9 @@ from contextlib import asynccontextmanager
 import logging
 
 from .database import engine, Base
-from .routers import subreddits_router, authors_router, posts_router, admin_router
+from .routers import companies_router, filings_router
 from .config import get_settings
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -17,26 +16,23 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    logger.info("Starting Reddit Stock Research Analyzer...")
+    logger.info("Starting SEC Filing Timeline...")
     if engine:
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables created/verified")
     else:
         logger.warning("Database not configured - set DATABASE_URL in .env")
     yield
-    # Shutdown
     logger.info("Shutting down...")
 
 
 app = FastAPI(
-    title="Reddit Stock Research Analyzer",
-    description="Analyze and rank stock research quality from Reddit",
+    title="Stock DD Finder",
+    description="SEC EDGAR filing timeline with AI summaries",
     version="1.0.0",
     lifespan=lifespan,
 )
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:3000"],
@@ -45,17 +41,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(subreddits_router)
-app.include_router(authors_router)
-app.include_router(posts_router)
-app.include_router(admin_router)
+app.include_router(companies_router)
+app.include_router(filings_router)
 
 
 @app.get("/")
 async def root():
     return {
-        "name": "Reddit Stock Research Analyzer",
+        "name": "Stock DD Finder",
         "version": "1.0.0",
         "docs": "/docs",
     }
@@ -67,6 +60,5 @@ async def health():
     return {
         "status": "healthy",
         "database_configured": bool(settings.database_url),
-        "reddit_configured": bool(settings.reddit_client_id),
         "anthropic_configured": bool(settings.anthropic_api_key),
     }

@@ -1,6 +1,4 @@
-from .subreddit import Subreddit
-from .author import Author
-from .post import Post
-from .analysis import Analysis
+from .company import Company
+from .filing import Filing
 
-__all__ = ["Subreddit", "Author", "Post", "Analysis"]
+__all__ = ["Company", "Filing"]

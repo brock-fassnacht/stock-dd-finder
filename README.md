@@ -1,18 +1,18 @@
 # Stock DD Finder
 
-A web app that identifies high-quality stock research contributors on Reddit using AI-powered analysis.
+Interactive timeline of SEC EDGAR filings with AI-generated summaries.
 
 **Status:** Early Development
 
 ## What It Does
 
-- Pulls posts from stock-focused subreddits (ASTS, PLTR, TSLA, IREN, etc.)
-- Uses Claude AI to summarize and score research quality
-- Ranks contributors by their research quality over time
+- Displays SEC filings on a full-width horizontal timeline
+- Shows 1-3 sentence AI summaries of each filing
+- Tracks ASTS, PLTR, TSLA, IREN
 
 ## Tech Stack
 
-- **Backend:** Python, FastAPI, PRAW
+- **Backend:** Python, FastAPI, httpx
 - **Frontend:** React, TypeScript, Vite, TailwindCSS
 - **Database:** Supabase (PostgreSQL)
 - **AI:** Anthropic Claude API
