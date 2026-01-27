@@ -3,11 +3,11 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    # Anthropic
-    anthropic_api_key: str = ""
+    # Groq (free tier)
+    groq_api_key: str = ""
 
-    # Database
-    database_url: str = ""
+    # Database (SQLite for local, PostgreSQL for prod)
+    database_url: str = "sqlite:///./stock_dd.db"
 
     # App settings
     debug: bool = False

@@ -13,129 +13,121 @@ const TICKER_COLORS: Record<string, string> = {
   IREN: 'bg-green-500',
 }
 
-const FORM_COLORS: Record<string, string> = {
-  '10-K': 'border-yellow-400',
-  '10-Q': 'border-blue-400',
-  '8-K': 'border-red-400',
-  '4': 'border-gray-400',
-  'DEF 14A': 'border-purple-400',
+const TICKER_BORDER: Record<string, string> = {
+  ASTS: 'border-blue-500',
+  PLTR: 'border-purple-500',
+  TSLA: 'border-red-500',
+  IREN: 'border-green-500',
+}
+
+const TICKER_LINE: Record<string, string> = {
+  ASTS: 'bg-blue-500',
+  PLTR: 'bg-purple-500',
+  TSLA: 'bg-red-500',
+  IREN: 'bg-green-500',
 }
 
 export function Timeline({ events, onEventClick }: TimelineProps) {
-  const groupedByMonth = useMemo(() => {
-    const groups: Record<string, TimelineEvent[]> = {}
-
-    events.forEach(event => {
-      const date = new Date(event.filed_date)
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-      if (!groups[key]) groups[key] = []
-      groups[key].push(event)
-    })
-
-    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]))
+  const sortedEvents = useMemo(() => {
+    return [...events].sort((a, b) =>
+      new Date(b.filed_date).getTime() - new Date(a.filed_date).getTime()
+    )
   }, [events])
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
+      year: '2-digit',
     })
-  }
-
-  const formatMonth = (key: string) => {
-    const [year, month] = key.split('-')
-    const date = new Date(parseInt(year), parseInt(month) - 1)
-    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
   }
 
   if (events.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
+      <div className="absolute inset-0 flex items-center justify-center text-gray-500">
         No filings found. Add companies and fetch filings to get started.
       </div>
     )
   }
 
   return (
-    <div className="w-full overflow-x-auto">
-      <div className="min-w-full px-4 py-8">
+    <div className="absolute inset-0">
+      {/* Cards area - full height minus timeline bar, horizontally scrollable */}
+      <div
+        className="absolute top-0 left-0 right-0 overflow-x-auto"
+        style={{ bottom: '36px' }}
+      >
+        <div className="flex gap-2 h-full items-stretch px-2 py-2">
+          {sortedEvents.map((event) => (
+            <div
+              key={event.id}
+              className="flex flex-col flex-shrink-0"
+              style={{ width: '140px' }}
+            >
+              {/* Card - grows to fill available space */}
+              <a
+                href={event.document_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`
+                  flex-1 p-2 bg-white rounded shadow cursor-pointer
+                  border-l-2 ${TICKER_BORDER[event.ticker] || 'border-gray-400'}
+                  hover:shadow-md transition-shadow
+                  flex flex-col overflow-hidden no-underline
+                `}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`
+                    text-[10px] font-bold px-1.5 py-0.5 rounded text-white
+                    ${TICKER_COLORS[event.ticker] || 'bg-gray-500'}
+                  `}>
+                    {event.ticker}
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-medium">
+                    {event.form_type}
+                  </span>
+                </div>
+
+                {/* Date */}
+                <div className="text-[10px] text-gray-400 mb-1">
+                  {formatDate(event.filed_date)}
+                </div>
+
+                {/* Headline - grows to fill space */}
+                <p className="text-xs text-gray-700 leading-tight flex-1 overflow-hidden">
+                  {event.headline || event.form_type_description || 'No summary available'}
+                </p>
+              </a>
+
+              {/* Vertical connector line */}
+              <div className={`w-0.5 flex-shrink-0 mx-auto ${TICKER_LINE[event.ticker] || 'bg-gray-400'}`} style={{ height: '12px' }} />
+
+              {/* Dot */}
+              <div className={`w-2 h-2 rounded-full mx-auto flex-shrink-0 ${TICKER_COLORS[event.ticker] || 'bg-gray-400'}`} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Timeline bar - fixed at bottom */}
+      <div
+        className="absolute left-0 right-0 bg-gray-100 border-t flex items-center px-4"
+        style={{ bottom: '0', height: '36px' }}
+      >
         {/* Timeline line */}
-        <div className="relative">
-          <div className="absolute top-8 left-0 right-0 h-1 bg-gray-200" />
+        <div className="absolute left-4 right-4 top-0 h-0.5 bg-gray-300" />
 
-          {/* Events grouped by month */}
-          <div className="flex gap-8">
-            {groupedByMonth.map(([monthKey, monthEvents]) => (
-              <div key={monthKey} className="flex-shrink-0">
-                {/* Month label */}
-                <div className="text-sm font-semibold text-gray-600 mb-4 sticky top-0 bg-gray-50 px-2">
-                  {formatMonth(monthKey)}
-                </div>
-
-                {/* Events in this month */}
-                <div className="flex gap-4">
-                  {monthEvents.map(event => (
-                    <div
-                      key={event.id}
-                      onClick={() => onEventClick?.(event)}
-                      className={`
-                        relative flex-shrink-0 w-64 cursor-pointer
-                        transition-transform hover:scale-105
-                      `}
-                    >
-                      {/* Dot on timeline */}
-                      <div className={`
-                        absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full
-                        ${TICKER_COLORS[event.ticker] || 'bg-gray-500'}
-                        border-2 border-white shadow
-                      `} />
-
-                      {/* Card */}
-                      <div className={`
-                        mt-6 p-3 bg-white rounded-lg shadow-sm
-                        border-l-4 ${FORM_COLORS[event.form_type] || 'border-gray-300'}
-                        hover:shadow-md transition-shadow
-                      `}>
-                        {/* Header */}
-                        <div className="flex items-center justify-between mb-2">
-                          <span className={`
-                            text-xs font-bold px-2 py-0.5 rounded text-white
-                            ${TICKER_COLORS[event.ticker] || 'bg-gray-500'}
-                          `}>
-                            {event.ticker}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {formatDate(event.filed_date)}
-                          </span>
-                        </div>
-
-                        {/* Form type */}
-                        <div className="text-xs text-gray-600 mb-1">
-                          {event.form_type} - {event.form_type_description}
-                        </div>
-
-                        {/* Headline */}
-                        <p className="text-sm text-gray-800 line-clamp-3">
-                          {event.headline || 'No summary available'}
-                        </p>
-
-                        {/* View link */}
-                        <a
-                          href={event.document_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          className="text-xs text-blue-600 hover:underline mt-2 inline-block"
-                        >
-                          View Filing
-                        </a>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+        {/* Date labels */}
+        <div className="relative w-full flex justify-between text-xs text-gray-600 font-medium">
+          {sortedEvents.length > 0 && (
+            <>
+              <span>Newest: {formatDate(sortedEvents[0].filed_date)}</span>
+              {sortedEvents.length > 1 && (
+                <span>Oldest: {formatDate(sortedEvents[sortedEvents.length - 1].filed_date)}</span>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

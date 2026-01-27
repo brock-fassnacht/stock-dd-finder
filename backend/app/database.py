@@ -5,20 +5,20 @@ from .config import get_settings
 
 settings = get_settings()
 
-# Handle empty database URL gracefully for initial setup
-if settings.database_url:
-    engine = create_engine(settings.database_url)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Handle SQLite vs PostgreSQL
+if settings.database_url.startswith("sqlite"):
+    engine = create_engine(
+        settings.database_url,
+        connect_args={"check_same_thread": False}  # Needed for SQLite
+    )
 else:
-    engine = None
-    SessionLocal = None
+    engine = create_engine(settings.database_url)
 
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
 def get_db():
-    if SessionLocal is None:
-        raise RuntimeError("Database not configured. Please set DATABASE_URL in .env")
     db = SessionLocal()
     try:
         yield db

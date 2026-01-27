@@ -1,27 +1,25 @@
-import anthropic
 import httpx
-from typing import Optional
+from groq import Groq
 from ..config import get_settings
 
 
 class SummarizerService:
-    """Service for generating AI summaries of SEC filings."""
+    """Service for generating AI summaries of SEC filings using Groq."""
 
     def __init__(self):
         settings = get_settings()
-        self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        self.model = "claude-sonnet-4-20250514"
+        self.client = Groq(api_key=settings.groq_api_key)
+        self.model = "llama-3.1-8b-instant"  # Fast and free
 
-    async def fetch_filing_text(self, url: str, max_chars: int = 15000) -> str:
+    async def fetch_filing_text(self, url: str, max_chars: int = 10000) -> str:
         """Fetch the text content of a filing document."""
         async with httpx.AsyncClient() as client:
             response = await client.get(url, headers={
                 "User-Agent": "StockDDFinder contact@example.com"
-            })
+            }, timeout=30.0)
             response.raise_for_status()
             text = response.text
 
-        # Return truncated text for summarization
         return text[:max_chars]
 
     def generate_headline(
@@ -29,6 +27,7 @@ class SummarizerService:
         form_type: str,
         company_name: str,
         filing_text: str,
+        document_url: str,
     ) -> str:
         """Generate a 1-3 sentence headline summarizing the filing."""
         prompt = f"""You are summarizing an SEC {form_type} filing from {company_name}.
@@ -39,17 +38,19 @@ Be specific about numbers, dates, and key facts when relevant.
 Write in a neutral, factual tone.
 
 Filing content (truncated):
-{filing_text[:10000]}
+{filing_text[:8000]}
 
-Respond with ONLY the headline, no other text."""
+Respond with ONLY the headline summary, nothing else."""
 
-        message = self.client.messages.create(
+        response = self.client.chat.completions.create(
             model=self.model,
-            max_tokens=256,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=200,
+            temperature=0.3,
         )
 
-        return message.content[0].text.strip()
+        headline = response.choices[0].message.content.strip()
+        return headline
 
     def get_form_type_description(self, form_type: str) -> str:
         """Get a human-readable description of an SEC form type."""

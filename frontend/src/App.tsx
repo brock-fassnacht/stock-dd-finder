@@ -120,7 +120,7 @@ function App() {
       </header>
 
       {/* Timeline */}
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden relative">
         {error ? (
           <div className="p-4">
             <ErrorMessage message={(error as Error).message} />
@@ -133,6 +133,13 @@ function App() {
             onEventClick={setSelectedEvent}
           />
         )}
+        {/* Refresh button */}
+        <button
+          onClick={() => window.location.reload()}
+          className="absolute top-2 right-2 px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm text-gray-700"
+        >
+          Refresh
+        </button>
       </main>
 
       {/* Event detail modal */}

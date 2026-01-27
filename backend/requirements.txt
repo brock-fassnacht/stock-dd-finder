@@ -5,14 +5,13 @@ python-dotenv>=1.0.0
 
 # Database
 sqlalchemy>=2.0.0
-psycopg2-binary>=2.9.9
 alembic>=1.13.0
 
 # HTTP client for SEC EDGAR
 httpx>=0.26.0
 
-# AI
-anthropic>=0.18.0
+# AI (Groq - free tier)
+groq>=0.4.0
 
 # Validation
 pydantic>=2.5.0

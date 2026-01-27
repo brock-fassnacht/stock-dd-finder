@@ -60,5 +60,5 @@ async def health():
     return {
         "status": "healthy",
         "database_configured": bool(settings.database_url),
-        "anthropic_configured": bool(settings.anthropic_api_key),
+        "groq_configured": bool(settings.groq_api_key),
     }
