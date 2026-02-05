@@ -39,6 +39,7 @@ export async function removeCompany(ticker: string): Promise<void> {
 export async function getTimeline(params?: {
   ticker?: string
   form_type?: string
+  exclude_form_types?: string[]
   start_date?: string
   end_date?: string
   limit?: number
@@ -46,6 +47,9 @@ export async function getTimeline(params?: {
   const searchParams = new URLSearchParams()
   if (params?.ticker) searchParams.set('ticker', params.ticker)
   if (params?.form_type) searchParams.set('form_type', params.form_type)
+  if (params?.exclude_form_types?.length) {
+    params.exclude_form_types.forEach(ft => searchParams.append('exclude_form_types', ft))
+  }
   if (params?.start_date) searchParams.set('start_date', params.start_date)
   if (params?.end_date) searchParams.set('end_date', params.end_date)
   if (params?.limit) searchParams.set('limit', String(params.limit))

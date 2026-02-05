@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTimeline, useCompanies } from './hooks'
 import { Timeline, Loading, ErrorMessage } from './components'
@@ -7,14 +7,40 @@ import type { TimelineEvent } from './api/types'
 
 const AVAILABLE_TICKERS = ['ASTS', 'PLTR', 'TSLA', 'IREN']
 
+const FORM_TYPES = [
+  { value: '4', label: 'Form 4 (Insider)' },
+  { value: '10-K', label: '10-K (Annual)' },
+  { value: '10-Q', label: '10-Q (Quarterly)' },
+  { value: '8-K', label: '8-K (Current)' },
+  { value: 'DEF 14A', label: 'DEF 14A (Proxy)' },
+  { value: 'S-1', label: 'S-1 (IPO)' },
+  { value: 'SC 13G', label: 'SC 13G (Ownership)' },
+  { value: 'SC 13D', label: 'SC 13D (Ownership)' },
+]
+
 function App() {
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState<{
     ticker?: string
-    form_type?: string
-  }>({})
+    exclude_form_types?: string[]
+  }>({
+    exclude_form_types: FORM_TYPES.map(ft => ft.value),
+  })
   const [fetching, setFetching] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
+  const [showExcludeDropdown, setShowExcludeDropdown] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowExcludeDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const { data: companies, isLoading: loadingCompanies } = useCompanies()
   const { data: timeline, isLoading: loadingTimeline, error } = useTimeline({
@@ -63,19 +89,55 @@ function App() {
               ))}
             </select>
 
-            {/* Form type filter */}
-            <select
-              value={filters.form_type || ''}
-              onChange={e => setFilters(f => ({ ...f, form_type: e.target.value || undefined }))}
-              className="px-3 py-1.5 border rounded text-sm"
-            >
-              <option value="">All Form Types</option>
-              <option value="10-K">10-K (Annual)</option>
-              <option value="10-Q">10-Q (Quarterly)</option>
-              <option value="8-K">8-K (Current)</option>
-              <option value="4">Form 4 (Insider)</option>
-              <option value="DEF 14A">DEF 14A (Proxy)</option>
-            </select>
+            {/* Exclude form types multi-select */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setShowExcludeDropdown(!showExcludeDropdown)}
+                className="px-3 py-1.5 border rounded text-sm flex items-center gap-2 bg-white"
+              >
+                <span>Form Types</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showExcludeDropdown && (
+                <div className="absolute top-full left-0 mt-1 bg-white border rounded shadow-lg z-10 min-w-[200px]">
+                  <div className="p-2 border-b text-xs text-gray-500 font-medium">Hide form types:</div>
+                  {FORM_TYPES.map(ft => (
+                    <label
+                      key={ft.value}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filters.exclude_form_types?.includes(ft.value) || false}
+                        onChange={e => {
+                          const current = filters.exclude_form_types || []
+                          if (e.target.checked) {
+                            setFilters(f => ({ ...f, exclude_form_types: [...current, ft.value] }))
+                          } else {
+                            setFilters(f => ({
+                              ...f,
+                              exclude_form_types: current.filter(t => t !== ft.value) || undefined,
+                            }))
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm">{ft.label}</span>
+                    </label>
+                  ))}
+                  {filters.exclude_form_types?.length ? (
+                    <button
+                      onClick={() => setFilters(f => ({ ...f, exclude_form_types: undefined }))}
+                      className="w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 border-t"
+                    >
+                      Clear all
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            </div>
 
             {/* Fetch button */}
             <button

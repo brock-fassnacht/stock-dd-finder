@@ -30,6 +30,7 @@ def get_form_description(form_type: str) -> str:
 def get_timeline(
     ticker: Optional[str] = Query(None, description="Filter by ticker"),
     form_type: Optional[str] = Query(None, description="Filter by form type"),
+    exclude_form_types: Optional[list[str]] = Query(None, description="Form types to exclude"),
     start_date: Optional[date] = Query(None, description="Start date"),
     end_date: Optional[date] = Query(None, description="End date"),
     limit: int = Query(100, ge=1, le=500),
@@ -42,6 +43,8 @@ def get_timeline(
         query = query.filter(Company.ticker == ticker.upper())
     if form_type:
         query = query.filter(Filing.form_type == form_type)
+    if exclude_form_types:
+        query = query.filter(Filing.form_type.notin_(exclude_form_types))
     if start_date:
         query = query.filter(Filing.filed_date >= start_date)
     if end_date:
@@ -159,4 +162,41 @@ async def fetch_filings(
         except Exception as e:
             results["errors"].append(f"Error fetching {company.ticker}: {str(e)}")
 
+    return results
+
+
+@router.post("/resummarize")
+async def resummarize_filings(
+    ticker: Optional[str] = Query(None, description="Specific ticker to resummarize"),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    """Generate AI headlines for filings that don't have them."""
+    query = db.query(Filing).join(Company).filter(Filing.headline.is_(None))
+
+    if ticker:
+        query = query.filter(Company.ticker == ticker.upper())
+
+    filings = query.limit(limit).all()
+
+    if not filings:
+        return {"summarized": 0, "errors": [], "message": "No filings need summarization"}
+
+    summarizer = SummarizerService()
+    results = {"summarized": 0, "errors": []}
+
+    for filing in filings:
+        try:
+            text = await summarizer.fetch_filing_text(filing.document_url)
+            headline = summarizer.generate_headline(
+                filing.form_type,
+                filing.company.name,
+                text,
+            )
+            filing.headline = headline
+            results["summarized"] += 1
+        except Exception as e:
+            results["errors"].append(f"Failed {filing.accession_number}: {str(e)}")
+
+    db.commit()
     return results

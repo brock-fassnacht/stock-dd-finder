@@ -11,6 +11,7 @@ export function useCompanies() {
 export function useTimeline(params?: {
   ticker?: string
   form_type?: string
+  exclude_form_types?: string[]
   start_date?: string
   end_date?: string
   limit?: number
