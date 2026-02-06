@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
-from typing import Optional
+from typing import Optional, List
 from datetime import date
 from ..database import get_db
 from ..models import Company, Filing
@@ -30,7 +30,7 @@ def get_form_description(form_type: str) -> str:
 def get_timeline(
     ticker: Optional[str] = Query(None, description="Filter by ticker"),
     form_type: Optional[str] = Query(None, description="Filter by form type"),
-    exclude_form_types: Optional[list[str]] = Query(None, description="Form types to exclude"),
+    exclude_form_types: Optional[List[str]] = Query(default=None, description="Form types to exclude"),
     start_date: Optional[date] = Query(None, description="Start date"),
     end_date: Optional[date] = Query(None, description="End date"),
     limit: int = Query(100, ge=1, le=500),

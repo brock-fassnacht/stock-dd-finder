@@ -20,12 +20,7 @@ const TICKER_BORDER: Record<string, string> = {
   IREN: 'border-green-500',
 }
 
-const TICKER_LINE: Record<string, string> = {
-  ASTS: 'bg-blue-500',
-  PLTR: 'bg-purple-500',
-  TSLA: 'bg-red-500',
-  IREN: 'bg-green-500',
-}
+const CARDS_PER_ROW = 6
 
 export function Timeline({ events, onEventClick }: TimelineProps) {
   const sortedEvents = useMemo(() => {
@@ -34,102 +29,160 @@ export function Timeline({ events, onEventClick }: TimelineProps) {
     )
   }, [events])
 
+  // Group events into rows
+  const rows = useMemo(() => {
+    const result: TimelineEvent[][] = []
+    for (let i = 0; i < sortedEvents.length; i += CARDS_PER_ROW) {
+      const row = sortedEvents.slice(i, i + CARDS_PER_ROW)
+      // Reverse every other row for snake pattern
+      const rowIndex = Math.floor(i / CARDS_PER_ROW)
+      result.push(rowIndex % 2 === 1 ? [...row].reverse() : row)
+    }
+    return result
+  }, [sortedEvents])
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: '2-digit',
     })
   }
 
   if (events.length === 0) {
     return (
-      <div className="absolute inset-0 flex items-center justify-center text-gray-500">
+      <div className="absolute inset-0 flex items-center justify-center text-gray-400 bg-gray-900">
         No filings found. Add companies and fetch filings to get started.
       </div>
     )
   }
 
   return (
-    <div className="absolute inset-0">
-      {/* Cards area - full height minus timeline bar, horizontally scrollable */}
-      <div
-        className="absolute top-0 left-0 right-0 overflow-x-auto"
-        style={{ bottom: '36px' }}
-      >
-        <div className="flex gap-2 h-full items-stretch px-2 py-2">
-          {sortedEvents.map((event) => (
+    <div className="absolute inset-0 overflow-auto p-4 bg-gray-900">
+      {/* Animated gradient line style */}
+      <style>{`
+        @keyframes flowRight {
+          0% { background-position: 0% 50%; }
+          100% { background-position: 200% 50%; }
+        }
+        @keyframes flowLeft {
+          0% { background-position: 200% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes flowDown {
+          0% { background-position: 50% 0%; }
+          100% { background-position: 50% 200%; }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 0.8; }
+          50% { opacity: 1; }
+        }
+        .snake-line-h {
+          background: linear-gradient(90deg, #06b6d4, #22d3ee, #a855f7, #ec4899, #06b6d4);
+          background-size: 200% 100%;
+          box-shadow: 0 0 20px rgba(6, 182, 212, 0.6), 0 0 40px rgba(168, 85, 247, 0.4);
+          animation: pulse 2s ease-in-out infinite;
+        }
+        .snake-line-h-right {
+          animation: flowRight 1.5s linear infinite, pulse 2s ease-in-out infinite;
+        }
+        .snake-line-h-left {
+          animation: flowLeft 1.5s linear infinite, pulse 2s ease-in-out infinite;
+        }
+        .snake-line-v {
+          background: linear-gradient(180deg, #06b6d4, #22d3ee, #a855f7, #ec4899, #06b6d4);
+          background-size: 100% 200%;
+          box-shadow: 0 0 20px rgba(6, 182, 212, 0.6), 0 0 40px rgba(168, 85, 247, 0.4);
+          animation: flowDown 1.5s linear infinite, pulse 2s ease-in-out infinite;
+        }
+      `}</style>
+
+      {rows.map((row, rowIndex) => {
+        const isReversed = rowIndex % 2 === 1
+        const isLastRow = rowIndex === rows.length - 1
+        const rowHasFullCards = row.length === CARDS_PER_ROW
+
+        return (
+          <div key={rowIndex} className="relative">
+            {/* Horizontal snake line behind cards */}
             <div
-              key={event.id}
-              className="flex flex-col flex-shrink-0"
-              style={{ width: '140px' }}
-            >
-              {/* Card - grows to fill available space */}
-              <a
-                href={event.document_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`
-                  flex-1 p-2 bg-white rounded shadow cursor-pointer
-                  border-l-2 ${TICKER_BORDER[event.ticker] || 'border-gray-400'}
-                  hover:shadow-md transition-shadow
-                  flex flex-col overflow-hidden no-underline
-                `}
-              >
-                {/* Header */}
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`
-                    text-[10px] font-bold px-1.5 py-0.5 rounded text-white
-                    ${TICKER_COLORS[event.ticker] || 'bg-gray-500'}
-                  `}>
-                    {event.ticker}
-                  </span>
-                  <span className="text-[10px] text-gray-500 font-medium">
-                    {event.form_type}
-                  </span>
-                </div>
+              className={`absolute top-1/2 -translate-y-1/2 h-2 rounded-full snake-line-h ${isReversed ? 'snake-line-h-left' : 'snake-line-h-right'}`}
+              style={{
+                left: isReversed ? (rowHasFullCards ? '12px' : `${((CARDS_PER_ROW - row.length) / CARDS_PER_ROW) * 100}%`) : '12px',
+                right: isReversed ? '12px' : (rowHasFullCards ? '12px' : `${((CARDS_PER_ROW - row.length) / CARDS_PER_ROW) * 100}%`),
+              }}
+            />
 
-                {/* Date */}
-                <div className="text-[10px] text-gray-400 mb-1">
-                  {formatDate(event.filed_date)}
-                </div>
+            {/* Row of cards */}
+            <div className="flex gap-3 mb-0 relative z-10">
+              {row.map((event) => (
+                <a
+                  key={event.id}
+                  href={event.document_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`
+                    flex-1 p-2 bg-gray-800 rounded-lg shadow-lg cursor-pointer
+                    border-l-4 ${TICKER_BORDER[event.ticker] || 'border-gray-600'}
+                    hover:bg-gray-750 hover:scale-[1.02] hover:shadow-xl transition-all
+                    flex flex-col no-underline min-w-0
+                  `}
+                  style={{ backgroundColor: 'rgb(31, 41, 55)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(55, 65, 81)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(31, 41, 55)'}
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`
+                      text-[10px] font-bold px-1.5 py-0.5 rounded text-white
+                      ${TICKER_COLORS[event.ticker] || 'bg-gray-500'}
+                    `}>
+                      {event.ticker}
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-medium">
+                      {event.form_type}
+                    </span>
+                  </div>
 
-                {/* Headline - grows to fill space */}
-                <p className="text-xs text-gray-700 leading-tight flex-1 overflow-hidden">
-                  {event.headline || event.form_type_description || 'No summary available'}
-                </p>
-              </a>
+                  {/* Date */}
+                  <div className="text-[10px] text-gray-500 mb-1">
+                    {formatDate(event.filed_date)}
+                  </div>
 
-              {/* Vertical connector line */}
-              <div className={`w-0.5 flex-shrink-0 mx-auto ${TICKER_LINE[event.ticker] || 'bg-gray-400'}`} style={{ height: '12px' }} />
+                  {/* Headline */}
+                  <p className="text-xs text-gray-300 leading-tight line-clamp-2">
+                    {event.headline || event.form_type_description || 'No summary'}
+                  </p>
+                </a>
+              ))}
 
-              {/* Dot */}
-              <div className={`w-2 h-2 rounded-full mx-auto flex-shrink-0 ${TICKER_COLORS[event.ticker] || 'bg-gray-400'}`} />
+              {/* Fill empty slots to maintain grid */}
+              {row.length < CARDS_PER_ROW &&
+                Array(CARDS_PER_ROW - row.length).fill(0).map((_, i) => (
+                  <div key={`empty-${i}`} className="flex-1 min-w-0" />
+                ))
+              }
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Timeline bar - fixed at bottom */}
-      <div
-        className="absolute left-0 right-0 bg-gray-100 border-t flex items-center px-4"
-        style={{ bottom: '0', height: '36px' }}
-      >
-        {/* Timeline line */}
-        <div className="absolute left-4 right-4 top-0 h-0.5 bg-gray-300" />
-
-        {/* Date labels */}
-        <div className="relative w-full flex justify-between text-xs text-gray-600 font-medium">
-          {sortedEvents.length > 0 && (
-            <>
-              <span>Newest: {formatDate(sortedEvents[0].filed_date)}</span>
-              {sortedEvents.length > 1 && (
-                <span>Oldest: {formatDate(sortedEvents[sortedEvents.length - 1].filed_date)}</span>
-              )}
-            </>
-          )}
-        </div>
-      </div>
+            {/* Vertical connector to next row */}
+            {!isLastRow && (
+              <div
+                className="relative"
+                style={{ height: '28px' }}
+              >
+                {/* Vertical line on the turn side */}
+                <div
+                  className="absolute w-2 rounded-full snake-line-v"
+                  style={{
+                    top: 0,
+                    bottom: 0,
+                    [isReversed ? 'left' : 'right']: '12px',
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

@@ -20,31 +20,36 @@ const FORM_TYPES = [
 
 function App() {
   const queryClient = useQueryClient()
-  const [filters, setFilters] = useState<{
-    ticker?: string
-    exclude_form_types?: string[]
-  }>({
-    exclude_form_types: FORM_TYPES.map(ft => ft.value),
-  })
+  const [tickerFilter, setTickerFilter] = useState<string | undefined>()
+  // Track which form types are SHOWN (checked = visible)
+  const [selectedFormTypes, setSelectedFormTypes] = useState<string[]>(
+    FORM_TYPES.map(ft => ft.value)
+  )
   const [fetching, setFetching] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
-  const [showExcludeDropdown, setShowExcludeDropdown] = useState(false)
+  const [showFormTypesDropdown, setShowFormTypesDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowExcludeDropdown(false)
+        setShowFormTypesDropdown(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Compute excluded types (unchecked ones)
+  const excludeFormTypes = FORM_TYPES
+    .map(ft => ft.value)
+    .filter(v => !selectedFormTypes.includes(v))
+
   const { data: companies, isLoading: loadingCompanies } = useCompanies()
   const { data: timeline, isLoading: loadingTimeline, error } = useTimeline({
-    ...filters,
+    ticker: tickerFilter,
+    exclude_form_types: excludeFormTypes.length > 0 ? excludeFormTypes : undefined,
     limit: 200,
   })
 
@@ -72,15 +77,15 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b px-4 py-3">
+      <header className="bg-white shadow-sm border-b px-4 py-3 relative z-20">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">Stock DD Finder</h1>
 
           <div className="flex items-center gap-4">
             {/* Ticker filter */}
             <select
-              value={filters.ticker || ''}
-              onChange={e => setFilters(f => ({ ...f, ticker: e.target.value || undefined }))}
+              value={tickerFilter || ''}
+              onChange={e => setTickerFilter(e.target.value || undefined)}
               className="px-3 py-1.5 border rounded text-sm"
             >
               <option value="">All Companies</option>
@@ -89,10 +94,10 @@ function App() {
               ))}
             </select>
 
-            {/* Exclude form types multi-select */}
+            {/* Form types multi-select (checked = show) */}
             <div className="relative" ref={dropdownRef}>
               <button
-                onClick={() => setShowExcludeDropdown(!showExcludeDropdown)}
+                onClick={() => setShowFormTypesDropdown(!showFormTypesDropdown)}
                 className="px-3 py-1.5 border rounded text-sm flex items-center gap-2 bg-white"
               >
                 <span>Form Types</span>
@@ -100,9 +105,9 @@ function App() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-              {showExcludeDropdown && (
-                <div className="absolute top-full left-0 mt-1 bg-white border rounded shadow-lg z-10 min-w-[200px]">
-                  <div className="p-2 border-b text-xs text-gray-500 font-medium">Hide form types:</div>
+              {showFormTypesDropdown && (
+                <div className="absolute top-full left-0 mt-1 bg-white border rounded shadow-lg z-50 min-w-[200px]">
+                  <div className="p-2 border-b text-xs text-gray-500 font-medium">Show form types:</div>
                   {FORM_TYPES.map(ft => (
                     <label
                       key={ft.value}
@@ -110,16 +115,12 @@ function App() {
                     >
                       <input
                         type="checkbox"
-                        checked={filters.exclude_form_types?.includes(ft.value) || false}
+                        checked={selectedFormTypes.includes(ft.value)}
                         onChange={e => {
-                          const current = filters.exclude_form_types || []
                           if (e.target.checked) {
-                            setFilters(f => ({ ...f, exclude_form_types: [...current, ft.value] }))
+                            setSelectedFormTypes(prev => [...prev, ft.value])
                           } else {
-                            setFilters(f => ({
-                              ...f,
-                              exclude_form_types: current.filter(t => t !== ft.value) || undefined,
-                            }))
+                            setSelectedFormTypes(prev => prev.filter(t => t !== ft.value))
                           }
                         }}
                         className="rounded"
@@ -127,14 +128,20 @@ function App() {
                       <span className="text-sm">{ft.label}</span>
                     </label>
                   ))}
-                  {filters.exclude_form_types?.length ? (
+                  <div className="flex border-t">
                     <button
-                      onClick={() => setFilters(f => ({ ...f, exclude_form_types: undefined }))}
-                      className="w-full px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 border-t"
+                      onClick={() => setSelectedFormTypes(FORM_TYPES.map(ft => ft.value))}
+                      className="flex-1 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50"
+                    >
+                      Select all
+                    </button>
+                    <button
+                      onClick={() => setSelectedFormTypes([])}
+                      className="flex-1 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 border-l"
                     >
                       Clear all
                     </button>
-                  ) : null}
+                  </div>
                 </div>
               )}
             </div>
@@ -198,7 +205,7 @@ function App() {
         {/* Refresh button */}
         <button
           onClick={() => window.location.reload()}
-          className="absolute top-2 right-2 px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm text-gray-700"
+          className="absolute top-2 right-2 px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm text-white z-20"
         >
           Refresh
         </button>
