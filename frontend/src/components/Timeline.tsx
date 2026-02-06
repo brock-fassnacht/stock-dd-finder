@@ -45,7 +45,7 @@ export function Timeline({ events, onEventClick }: TimelineProps) {
     return new Date(dateStr).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: '2-digit',
+      year: 'numeric',
     })
   }
 
@@ -95,6 +95,28 @@ export function Timeline({ events, onEventClick }: TimelineProps) {
           box-shadow: 0 0 20px rgba(6, 182, 212, 0.6), 0 0 40px rgba(168, 85, 247, 0.4);
           animation: flowDown 1.5s linear infinite, pulse 2s ease-in-out infinite;
         }
+        .timeline-card {
+          transition: all 0.2s ease-out;
+        }
+        .timeline-card:hover {
+          position: relative;
+          z-index: 50;
+          transform: scale(1.05);
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+        .timeline-card .card-content {
+          display: -webkit-box;
+          -webkit-line-clamp: 4;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .timeline-card:hover .card-content {
+          display: block;
+          -webkit-line-clamp: unset;
+          overflow: visible;
+          max-height: 300px;
+          overflow-y: auto;
+        }
       `}</style>
 
       {rows.map((row, rowIndex) => {
@@ -122,9 +144,8 @@ export function Timeline({ events, onEventClick }: TimelineProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`
-                    flex-1 p-3 bg-gray-800 rounded-lg shadow-lg cursor-pointer
+                    timeline-card flex-1 p-3 rounded-lg shadow-lg cursor-pointer
                     border-l-4 ${TICKER_BORDER[event.ticker] || 'border-gray-600'}
-                    hover:bg-gray-750 hover:scale-[1.02] hover:shadow-xl transition-all
                     flex flex-col no-underline min-w-0
                   `}
                   style={{ backgroundColor: 'rgb(31, 41, 55)', minHeight: '100px' }}
@@ -150,7 +171,7 @@ export function Timeline({ events, onEventClick }: TimelineProps) {
                   </div>
 
                   {/* Headline */}
-                  <p className="text-sm text-gray-300 leading-snug line-clamp-4">
+                  <p className="card-content text-sm text-gray-300 leading-snug">
                     {event.headline || event.form_type_description || 'No summary'}
                   </p>
                 </a>
