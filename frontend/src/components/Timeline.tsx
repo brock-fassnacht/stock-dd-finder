@@ -45,6 +45,7 @@ export function Timeline({ events, onEventClick }: TimelineProps) {
     return new Date(dateStr).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
+      year: '2-digit',
     })
   }
 
