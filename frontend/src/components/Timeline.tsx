@@ -20,7 +20,7 @@ const TICKER_BORDER: Record<string, string> = {
   IREN: 'border-green-500',
 }
 
-const CARDS_PER_ROW = 6
+const CARDS_PER_ROW = 5
 
 export function Timeline({ events, onEventClick }: TimelineProps) {
   const sortedEvents = useMemo(() => {
@@ -121,35 +121,35 @@ export function Timeline({ events, onEventClick }: TimelineProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`
-                    flex-1 p-2 bg-gray-800 rounded-lg shadow-lg cursor-pointer
+                    flex-1 p-3 bg-gray-800 rounded-lg shadow-lg cursor-pointer
                     border-l-4 ${TICKER_BORDER[event.ticker] || 'border-gray-600'}
                     hover:bg-gray-750 hover:scale-[1.02] hover:shadow-xl transition-all
                     flex flex-col no-underline min-w-0
                   `}
-                  style={{ backgroundColor: 'rgb(31, 41, 55)' }}
+                  style={{ backgroundColor: 'rgb(31, 41, 55)', minHeight: '100px' }}
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(55, 65, 81)'}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(31, 41, 55)'}
                 >
                   {/* Header */}
                   <div className="flex items-center justify-between mb-1">
                     <span className={`
-                      text-[10px] font-bold px-1.5 py-0.5 rounded text-white
+                      text-[11px] font-bold px-1.5 py-0.5 rounded text-white
                       ${TICKER_COLORS[event.ticker] || 'bg-gray-500'}
                     `}>
                       {event.ticker}
                     </span>
-                    <span className="text-[10px] text-gray-400 font-medium">
+                    <span className="text-[11px] text-gray-400 font-medium">
                       {event.form_type}
                     </span>
                   </div>
 
                   {/* Date */}
-                  <div className="text-[10px] text-gray-500 mb-1">
+                  <div className="text-[11px] text-gray-500 mb-1">
                     {formatDate(event.filed_date)}
                   </div>
 
                   {/* Headline */}
-                  <p className="text-xs text-gray-300 leading-tight line-clamp-2">
+                  <p className="text-sm text-gray-300 leading-snug line-clamp-4">
                     {event.headline || event.form_type_description || 'No summary'}
                   </p>
                 </a>

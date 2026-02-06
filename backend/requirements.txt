@@ -10,6 +10,10 @@ alembic>=1.13.0
 # HTTP client for SEC EDGAR
 httpx>=0.26.0
 
+# HTML parsing
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+
 # AI (Groq - free tier)
 groq>=0.4.0
 
