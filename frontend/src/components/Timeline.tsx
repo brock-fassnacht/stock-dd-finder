@@ -136,7 +136,17 @@ export function Timeline({ events, onEventClick }: TimelineProps) {
             />
 
             {/* Row of cards */}
-            <div className="flex gap-3 mb-0 relative z-10">
+            <div
+              className="grid gap-3 mb-0 relative z-10"
+              style={{ gridTemplateColumns: `repeat(${CARDS_PER_ROW}, 1fr)` }}
+            >
+              {/* Fill empty slots at START for reversed rows to maintain alignment */}
+              {isReversed && row.length < CARDS_PER_ROW &&
+                Array(CARDS_PER_ROW - row.length).fill(0).map((_, i) => (
+                  <div key={`empty-${i}`} />
+                ))
+              }
+
               {row.map((event) => (
                 <a
                   key={event.id}
@@ -144,9 +154,9 @@ export function Timeline({ events, onEventClick }: TimelineProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`
-                    timeline-card flex-1 p-3 rounded-lg shadow-lg cursor-pointer
+                    timeline-card p-3 rounded-lg shadow-lg cursor-pointer
                     border-l-4 ${TICKER_BORDER[event.ticker] || 'border-gray-600'}
-                    flex flex-col no-underline min-w-0
+                    flex flex-col no-underline
                   `}
                   style={{ backgroundColor: 'rgb(31, 41, 55)', minHeight: '100px' }}
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(55, 65, 81)'}
@@ -176,13 +186,6 @@ export function Timeline({ events, onEventClick }: TimelineProps) {
                   </p>
                 </a>
               ))}
-
-              {/* Fill empty slots to maintain grid */}
-              {row.length < CARDS_PER_ROW &&
-                Array(CARDS_PER_ROW - row.length).fill(0).map((_, i) => (
-                  <div key={`empty-${i}`} className="flex-1 min-w-0" />
-                ))
-              }
             </div>
 
             {/* Vertical connector to next row */}

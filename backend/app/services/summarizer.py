@@ -90,7 +90,7 @@ class SummarizerService:
     def __init__(self):
         settings = get_settings()
         self.client = Groq(api_key=settings.groq_api_key)
-        self.model = "llama-3.3-70b-versatile"
+        self.model = "llama-3.1-8b-instant"
 
     async def fetch_filing_text(self, url: str, max_chars: int = 15000) -> str:
         """Fetch and extract clean text content from a filing document."""
