@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 import logging
 
 from .database import engine, Base
-from .routers import companies_router, filings_router
+from .routers import companies_router, filings_router, prices_router
 from .config import get_settings
 
 logging.basicConfig(
@@ -43,6 +43,7 @@ app.add_middleware(
 
 app.include_router(companies_router)
 app.include_router(filings_router)
+app.include_router(prices_router)
 
 
 @app.get("/")

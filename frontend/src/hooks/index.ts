@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { getCompanies, getTimeline, getFiling } from '../api'
+import { getCompanies, getTimeline, getFiling, getPrices } from '../api'
 
 export function useCompanies() {
   return useQuery({
@@ -27,5 +27,13 @@ export function useFiling(id: number) {
     queryKey: ['filing', id],
     queryFn: () => getFiling(id),
     enabled: !!id,
+  })
+}
+
+export function usePrices(ticker: string | undefined, period: string = '1y') {
+  return useQuery({
+    queryKey: ['prices', ticker, period],
+    queryFn: () => getPrices(ticker!, period),
+    enabled: !!ticker,
   })
 }

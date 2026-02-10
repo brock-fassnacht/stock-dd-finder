@@ -36,3 +36,17 @@ export interface Filing {
   company_ticker: string
   company_name: string
 }
+
+export interface Candle {
+  date: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
+export interface PriceResponse {
+  ticker: string
+  candles: Candle[]
+}

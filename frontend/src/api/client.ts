@@ -1,4 +1,4 @@
-import type { Company, TimelineResponse, Filing } from './types'
+import type { Company, TimelineResponse, Filing, PriceResponse } from './types'
 
 const API_BASE = '/api'
 
@@ -74,4 +74,12 @@ export async function fetchFilings(params?: {
 
   const query = searchParams.toString()
   return fetchJson(`/filings/fetch${query ? `?${query}` : ''}`, { method: 'POST' })
+}
+
+// Prices
+export async function getPrices(
+  ticker: string,
+  period: string = '1y'
+): Promise<PriceResponse> {
+  return fetchJson(`/prices/${ticker}?period=${period}`)
 }

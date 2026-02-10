@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useTimeline, useCompanies } from './hooks'
-import { Timeline, Loading, ErrorMessage } from './components'
+import { useTimeline, useCompanies, usePrices } from './hooks'
+import { Timeline, Loading, ErrorMessage, StockChart } from './components'
 import { addCompany, fetchFilings } from './api'
 import type { TimelineEvent } from './api/types'
+
+type ViewMode = 'timeline' | 'chart'
 
 const AVAILABLE_TICKERS = ['ASTS', 'PLTR', 'TSLA', 'IREN']
 
@@ -20,7 +22,9 @@ const FORM_TYPES = [
 
 function App() {
   const queryClient = useQueryClient()
+  const [viewMode, setViewMode] = useState<ViewMode>('timeline')
   const [tickerFilter, setTickerFilter] = useState<string | undefined>()
+  const [chartTicker, setChartTicker] = useState<string | undefined>()
   // Track which form types are SHOWN (checked = visible)
   const [selectedFormTypes, setSelectedFormTypes] = useState<string[]>(
     FORM_TYPES.map(ft => ft.value)
@@ -48,10 +52,21 @@ function App() {
 
   const { data: companies, isLoading: loadingCompanies } = useCompanies()
   const { data: timeline, isLoading: loadingTimeline, error } = useTimeline({
-    ticker: tickerFilter,
+    ticker: viewMode === 'chart' ? chartTicker : tickerFilter,
     exclude_form_types: excludeFormTypes.length > 0 ? excludeFormTypes : undefined,
     limit: 200,
   })
+  const { data: priceData, isLoading: loadingPrices } = usePrices(
+    viewMode === 'chart' ? chartTicker : undefined,
+    '1y'
+  )
+
+  // Set default chart ticker when companies load
+  useEffect(() => {
+    if (companies?.length && !chartTicker) {
+      setChartTicker(companies[0].ticker)
+    }
+  }, [companies, chartTicker])
 
   const handleAddCompany = async (ticker: string) => {
     try {
@@ -82,17 +97,53 @@ function App() {
           <h1 className="text-xl font-bold text-gray-900">Stock DD Finder</h1>
 
           <div className="flex items-center gap-4">
-            {/* Ticker filter */}
-            <select
-              value={tickerFilter || ''}
-              onChange={e => setTickerFilter(e.target.value || undefined)}
-              className="px-3 py-1.5 border rounded text-sm"
-            >
-              <option value="">All Companies</option>
-              {companies?.map(c => (
-                <option key={c.ticker} value={c.ticker}>{c.ticker}</option>
-              ))}
-            </select>
+            {/* View toggle */}
+            <div className="flex rounded-lg overflow-hidden border">
+              <button
+                onClick={() => setViewMode('timeline')}
+                className={`px-3 py-1.5 text-sm font-medium ${
+                  viewMode === 'timeline'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Timeline
+              </button>
+              <button
+                onClick={() => setViewMode('chart')}
+                className={`px-3 py-1.5 text-sm font-medium ${
+                  viewMode === 'chart'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Chart
+              </button>
+            </div>
+
+            {/* Ticker filter (timeline) or ticker select (chart) */}
+            {viewMode === 'timeline' ? (
+              <select
+                value={tickerFilter || ''}
+                onChange={e => setTickerFilter(e.target.value || undefined)}
+                className="px-3 py-1.5 border rounded text-sm"
+              >
+                <option value="">All Companies</option>
+                {companies?.map(c => (
+                  <option key={c.ticker} value={c.ticker}>{c.ticker}</option>
+                ))}
+              </select>
+            ) : (
+              <select
+                value={chartTicker || ''}
+                onChange={e => setChartTicker(e.target.value || undefined)}
+                className="px-3 py-1.5 border rounded text-sm"
+              >
+                {companies?.map(c => (
+                  <option key={c.ticker} value={c.ticker}>{c.ticker}</option>
+                ))}
+              </select>
+            )}
 
             {/* Form types multi-select (checked = show) */}
             <div className="relative" ref={dropdownRef}>
@@ -188,19 +239,47 @@ function App() {
         </div>
       </header>
 
-      {/* Timeline */}
+      {/* Main content */}
       <main className="flex-1 overflow-hidden relative">
-        {error ? (
-          <div className="p-4">
-            <ErrorMessage message={(error as Error).message} />
-          </div>
-        ) : loadingTimeline ? (
-          <Loading />
+        {viewMode === 'timeline' ? (
+          // Timeline view
+          error ? (
+            <div className="p-4">
+              <ErrorMessage message={(error as Error).message} />
+            </div>
+          ) : loadingTimeline ? (
+            <Loading />
+          ) : (
+            <Timeline
+              events={timeline?.events || []}
+              onEventClick={setSelectedEvent}
+            />
+          )
         ) : (
-          <Timeline
-            events={timeline?.events || []}
-            onEventClick={setSelectedEvent}
-          />
+          // Chart view
+          <div className="bg-gray-900 p-4">
+            {!chartTicker ? (
+              <div className="text-gray-400 text-center py-12">
+                Select a ticker to view the chart
+              </div>
+            ) : loadingPrices ? (
+              <div className="flex items-center justify-center py-12">
+                <Loading />
+              </div>
+            ) : priceData?.candles?.length ? (
+              <StockChart
+                key={chartTicker}
+                ticker={chartTicker}
+                candles={priceData.candles}
+                filings={timeline?.events || []}
+                onFilingClick={setSelectedEvent}
+              />
+            ) : (
+              <div className="text-gray-400 text-center py-12">
+                No price data available for {chartTicker}
+              </div>
+            )}
+          </div>
         )}
         {/* Refresh button */}
         <button
