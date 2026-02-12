@@ -22,7 +22,7 @@ const TICKER_BORDER: Record<string, string> = {
 
 const CARDS_PER_ROW = 5
 
-export function Timeline({ events, onEventClick }: TimelineProps) {
+export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps) {
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) =>
       new Date(b.filed_date).getTime() - new Date(a.filed_date).getTime()
