@@ -95,14 +95,18 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
           box-shadow: 0 0 20px rgba(6, 182, 212, 0.6), 0 0 40px rgba(168, 85, 247, 0.4);
           animation: flowDown 1.5s linear infinite, pulse 2s ease-in-out infinite;
         }
-        .timeline-card {
-          transition: all 0.2s ease-out;
+        .timeline-row:has(.timeline-card-wrapper:hover) {
+          z-index: 100;
         }
-        .timeline-card:hover {
+        .timeline-card-wrapper {
           position: relative;
-          z-index: 50;
-          transform: scale(1.05);
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+          z-index: 1;
+        }
+        .timeline-card-wrapper:hover {
+          z-index: 100;
+        }
+        .timeline-card {
+          transition: background-color 0.2s ease-out, box-shadow 0.2s ease-out;
         }
         .timeline-card .card-content {
           display: -webkit-box;
@@ -110,7 +114,15 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
           -webkit-box-orient: vertical;
           overflow: hidden;
         }
-        .timeline-card:hover .card-content {
+        .timeline-card-wrapper:hover .timeline-card {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          z-index: 50;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+        .timeline-card-wrapper:hover .timeline-card .card-content {
           display: block;
           -webkit-line-clamp: unset;
           overflow: visible;
@@ -125,7 +137,7 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
         const rowHasFullCards = row.length === CARDS_PER_ROW
 
         return (
-          <div key={rowIndex} className="relative">
+          <div key={rowIndex} className="timeline-row relative">
             {/* Horizontal snake line behind cards */}
             <div
               className={`absolute top-1/2 -translate-y-1/2 h-2 rounded-full snake-line-h ${isReversed ? 'snake-line-h-left' : 'snake-line-h-right'}`}
@@ -148,43 +160,44 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
               }
 
               {row.map((event) => (
-                <a
-                  key={event.id}
-                  href={event.document_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`
-                    timeline-card p-3 rounded-lg shadow-lg cursor-pointer
-                    border-l-4 ${TICKER_BORDER[event.ticker] || 'border-gray-600'}
-                    flex flex-col no-underline
-                  `}
-                  style={{ backgroundColor: 'rgb(31, 41, 55)', minHeight: '100px' }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(55, 65, 81)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(31, 41, 55)'}
-                >
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-1">
-                    <span className={`
-                      text-[11px] font-bold px-1.5 py-0.5 rounded text-white
-                      ${TICKER_COLORS[event.ticker] || 'bg-gray-500'}
-                    `}>
-                      {event.ticker}
-                    </span>
-                    <span className="text-[11px] text-gray-400 font-medium">
-                      {event.form_type}
-                    </span>
-                  </div>
+                <div key={event.id} className="timeline-card-wrapper" style={{ minHeight: '100px' }}>
+                  <a
+                    href={event.document_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`
+                      timeline-card p-3 rounded-lg shadow-lg cursor-pointer
+                      border-l-4 ${TICKER_BORDER[event.ticker] || 'border-gray-600'}
+                      flex flex-col no-underline
+                    `}
+                    style={{ backgroundColor: 'rgb(31, 41, 55)', minHeight: '100px' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(75, 85, 99)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(31, 41, 55)'}
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`
+                        text-[11px] font-bold px-1.5 py-0.5 rounded text-white
+                        ${TICKER_COLORS[event.ticker] || 'bg-gray-500'}
+                      `}>
+                        {event.ticker}
+                      </span>
+                      <span className="text-[11px] text-gray-400 font-medium">
+                        {event.form_type}
+                      </span>
+                    </div>
 
-                  {/* Date */}
-                  <div className="text-[11px] text-gray-500 mb-1">
-                    {formatDate(event.filed_date)}
-                  </div>
+                    {/* Date */}
+                    <div className="text-[11px] text-gray-500 mb-1">
+                      {formatDate(event.filed_date)}
+                    </div>
 
-                  {/* Headline */}
-                  <p className="card-content text-sm text-gray-300 leading-snug">
-                    {event.headline || event.form_type_description || 'No summary'}
-                  </p>
-                </a>
+                    {/* Headline */}
+                    <p className="card-content text-sm text-gray-300 leading-snug">
+                      {event.headline || event.form_type_description || 'No summary'}
+                    </p>
+                  </a>
+                </div>
               ))}
             </div>
 
@@ -208,6 +221,17 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
           </div>
         )
       })}
+
+      {/* Buffer + Disclaimer */}
+      <div className="pt-16 pb-8 text-center">
+        <p className="text-xs text-gray-500">
+          These summaries are AI-generated. Please refer to the original filings at{' '}
+          <a href="https://www.sec.gov/edgar/searchedgar/companysearch" target="_blank" rel="noopener noreferrer" className="text-gray-400 underline hover:text-gray-300">
+            SEC.gov
+          </a>{' '}
+          for complete information.
+        </p>
+      </div>
     </div>
   )
 }
