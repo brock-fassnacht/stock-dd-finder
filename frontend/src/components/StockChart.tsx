@@ -86,16 +86,23 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
     }
 
     // Find which filing dates have matching candles
+    // Use highest-priority filing type for dot color: 10-K > 10-Q > 8-K > other > Form 4
     const candleDates = new Set(candles.map(c => c.date))
-    const seen = new Set<string>()
-    const markerInfos: { date: string; color: string; high: number }[] = []
+    const bestByDate = new Map<string, { priority: number; formType: string }>()
     for (const f of filings) {
       const date = f.filed_date.split('T')[0]
-      if (!candleDates.has(date) || seen.has(date)) continue
-      seen.add(date)
+      if (!candleDates.has(date)) continue
+      const priority = getFormTypePriority(f.form_type)
+      const existing = bestByDate.get(date)
+      if (!existing || priority > existing.priority) {
+        bestByDate.set(date, { priority, formType: f.form_type })
+      }
+    }
+    const markerInfos: { date: string; color: string; high: number }[] = []
+    for (const [date, info] of bestByDate) {
       markerInfos.push({
         date,
-        color: getMarkerColor(f.form_type),
+        color: getMarkerColor(info.formType),
         high: candleHighByDate.get(date) || 0,
       })
     }
@@ -136,17 +143,26 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
 
       // Measure actual tooltip height, then center vertically on click point
       const tooltipWidth = 320
-      const tooltipHeight = pinnedTooltip.offsetHeight
+      const naturalHeight = pinnedTooltip.offsetHeight
+      const containerHeight = container.clientHeight
       let left = clickX + 16
-      let top = clickY - (tooltipHeight / 2)
+      let top = clickY - (naturalHeight / 2)
 
       if (left + tooltipWidth > container.clientWidth) {
         left = clickX - tooltipWidth - 16
       }
       // Clamp within chart bounds
       if (top < 0) top = 0
-      if (top + tooltipHeight > container.clientHeight) {
-        top = container.clientHeight - tooltipHeight
+      if (top + naturalHeight > containerHeight) {
+        top = containerHeight - naturalHeight
+        if (top < 0) top = 0
+      }
+
+      // If tooltip is taller than available space, cap it with scroll
+      const availableHeight = containerHeight - top - 12
+      if (naturalHeight > availableHeight) {
+        pinnedTooltip.style.maxHeight = availableHeight + 'px'
+        pinnedTooltip.style.overflowY = 'auto'
       }
 
       pinnedTooltip.style.left = left + 'px'
@@ -323,6 +339,7 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
         />
         <div
           ref={pinnedTooltipRef}
+          className="dark-scrollbar"
           style={{
             display: 'none',
             position: 'absolute',
@@ -343,15 +360,18 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
   )
 }
 
+function getFormTypePriority(formType: string): number {
+  if (formType.includes('10-K')) return 5
+  if (formType.includes('10-Q')) return 4
+  if (formType.includes('8-K')) return 3
+  if (formType === '4') return 1
+  return 2
+}
+
 function getMarkerColor(formType: string): string {
-  if (formType.includes('10-K') || formType.includes('10-Q')) {
-    return '#3b82f6'
-  }
-  if (formType.includes('8-K')) {
-    return '#eab308'
-  }
-  if (formType === '4') {
-    return '#a855f7'
-  }
+  if (formType.includes('10-K')) return '#3b82f6'
+  if (formType.includes('10-Q')) return '#3b82f6'
+  if (formType.includes('8-K')) return '#eab308'
+  if (formType === '4') return '#a855f7'
   return '#22c55e'
 }
