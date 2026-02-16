@@ -15,6 +15,7 @@ const DOT_OFFSET_PX = 20
 export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingClick }: StockChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
+  const pinnedTooltipRef = useRef<HTMLDivElement>(null)
   const dotsContainerRef = useRef<HTMLDivElement>(null)
   const chartCreated = useRef(false)
 
@@ -25,6 +26,7 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
     chartCreated.current = true
     const container = chartContainerRef.current
     const tooltip = tooltipRef.current!
+    const pinnedTooltip = pinnedTooltipRef.current!
     const dotsContainer = dotsContainerRef.current!
 
     const chart = createChart(container, {
@@ -98,7 +100,8 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
       })
     }
 
-    // Create dot DOM elements
+    // Create dot DOM elements (visual only, clicks handled via chart)
+    let pinnedDate: string | null = null
     const dotElements: { el: HTMLDivElement; date: string; high: number }[] = []
     for (const info of markerInfos) {
       const dot = document.createElement('div')
@@ -106,6 +109,78 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
       dotsContainer.appendChild(dot)
       dotElements.push({ el: dot, date: info.date, high: info.high })
     }
+
+    // Show pinned tooltip for a given date
+    function showPinnedTooltip(dateStr: string, clickX: number, clickY: number) {
+      const dayFilings = filingsByDate.get(dateStr)
+      if (!dayFilings?.length) return
+
+      // Toggle off if same date clicked
+      if (pinnedDate === dateStr) {
+        pinnedDate = null
+        pinnedTooltip.style.display = 'none'
+        return
+      }
+
+      pinnedDate = dateStr
+      const lines = dayFilings.map((f, i) => {
+        const summary = f.headline || 'No summary available'
+        const closeBtn = i === 0 ? `<button id="pinned-close" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:16px;line-height:1;padding:0 0 0 8px;float:right;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#9ca3af'">&times;</button>` : ''
+        return `<div style="margin-bottom:8px">${closeBtn}<a href="${f.document_url}" target="_blank" rel="noopener noreferrer" style="color:${getMarkerColor(f.form_type)};font-weight:bold;font-size:14px;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${f.form_type} — ${dateStr}</a><br/><span style="color:#e5e7eb">${summary}</span></div>`
+      })
+
+      pinnedTooltip.innerHTML = lines.join('')
+      pinnedTooltip.style.maxHeight = ''
+      pinnedTooltip.style.overflowY = ''
+      pinnedTooltip.style.display = 'block'
+
+      // Measure actual tooltip height, then center vertically on click point
+      const tooltipWidth = 320
+      const tooltipHeight = pinnedTooltip.offsetHeight
+      let left = clickX + 16
+      let top = clickY - (tooltipHeight / 2)
+
+      if (left + tooltipWidth > container.clientWidth) {
+        left = clickX - tooltipWidth - 16
+      }
+      // Clamp within chart bounds
+      if (top < 0) top = 0
+      if (top + tooltipHeight > container.clientHeight) {
+        top = container.clientHeight - tooltipHeight
+      }
+
+      pinnedTooltip.style.left = left + 'px'
+      pinnedTooltip.style.top = top + 'px'
+
+      // Attach close handler
+      const closeBtn = pinnedTooltip.querySelector('#pinned-close')
+      closeBtn?.addEventListener('click', (e) => {
+        e.stopPropagation()
+        pinnedDate = null
+        pinnedTooltip.style.display = 'none'
+      })
+    }
+
+    // Set of dates with filing markers
+    const markerDatesSet = new Set(markerInfos.map(m => m.date))
+
+    // Handle clicks on the chart
+    chart.subscribeClick(param => {
+      // Click on a filing date — show/toggle pinned tooltip
+      if (param.time && markerDatesSet.has(param.time as string)) {
+        const point = param.point
+        if (point) {
+          showPinnedTooltip(param.time as string, point.x, point.y)
+        }
+        return
+      }
+
+      // Click anywhere else — dismiss pinned tooltip
+      if (pinnedDate) {
+        pinnedDate = null
+        pinnedTooltip.style.display = 'none'
+      }
+    })
 
     // Position dots based on chart coordinates
     function updateDotPositions() {
@@ -128,9 +203,13 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
     requestAnimationFrame(updateDotPositions)
 
     // Tooltip on crosshair move
-    const markerDatesSet = new Set(markerInfos.map(m => m.date))
-
     chart.subscribeCrosshairMove(param => {
+      // Hide hover tooltip if a pinned tooltip is showing
+      if (pinnedDate) {
+        tooltip.style.display = 'none'
+        return
+      }
+
       if (!param.time || !markerDatesSet.has(param.time as string)) {
         tooltip.style.display = 'none'
         return
@@ -145,7 +224,7 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
 
       const lines = dayFilings.map(f => {
         const summary = f.headline || 'No summary available'
-        return `<div style="margin-bottom:6px"><span style="color:${getMarkerColor(f.form_type)};font-weight:bold">${f.form_type}</span> <span style="color:#9ca3af;font-size:11px">${dateStr}</span><br/><span style="color:#e5e7eb">${summary}</span></div>`
+        return `<div style="margin-bottom:8px"><span style="color:${getMarkerColor(f.form_type)};font-weight:bold;font-size:14px;">${f.form_type} — ${dateStr}</span><br/><span style="color:#e5e7eb">${summary}</span></div>`
       })
 
       tooltip.innerHTML = lines.join('')
@@ -156,13 +235,14 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
         const tooltipWidth = 320
         const tooltipHeight = tooltip.offsetHeight
         let left = point.x + 16
-        let top = point.y - tooltipHeight - 10
+        let top = point.y - (tooltipHeight / 2)
 
         if (left + tooltipWidth > container.clientWidth) {
           left = point.x - tooltipWidth - 16
         }
-        if (top < 0) {
-          top = point.y + 16
+        if (top < 0) top = 0
+        if (top + tooltipHeight > container.clientHeight) {
+          top = container.clientHeight - tooltipHeight
         }
 
         tooltip.style.left = left + 'px'
@@ -188,6 +268,8 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
       window.removeEventListener('resize', handleResize)
       chart.remove()
       dotsContainer.innerHTML = ''
+      pinnedTooltip.style.display = 'none'
+      pinnedTooltip.innerHTML = ''
       chartCreated.current = false
     }
   }, [candles, filings])
@@ -230,13 +312,30 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
             zIndex: 10,
             maxWidth: 320,
             padding: '10px 12px',
-            backgroundColor: 'rgba(22, 22, 40, 0.95)',
+            backgroundColor: 'rgba(22, 22, 40, 0.97)',
             border: '1px solid #4b5563',
             borderRadius: 8,
             fontSize: 13,
             lineHeight: 1.4,
             pointerEvents: 'none',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+          }}
+        />
+        <div
+          ref={pinnedTooltipRef}
+          style={{
+            display: 'none',
+            position: 'absolute',
+            zIndex: 50,
+            maxWidth: 320,
+            padding: '10px 12px',
+            backgroundColor: 'rgba(22, 22, 40, 0.97)',
+            border: '1px solid #4b5563',
+            borderRadius: 8,
+            fontSize: 13,
+            lineHeight: 1.4,
+            pointerEvents: 'auto',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
           }}
         />
       </div>

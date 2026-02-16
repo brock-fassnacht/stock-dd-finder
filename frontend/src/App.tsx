@@ -267,13 +267,24 @@ function App() {
                 <Loading />
               </div>
             ) : priceData?.candles?.length ? (
-              <StockChart
-                key={chartTicker}
-                ticker={chartTicker}
-                candles={priceData.candles}
-                filings={timeline?.events || []}
-                onFilingClick={setSelectedEvent}
-              />
+              <>
+                <StockChart
+                  key={chartTicker}
+                  ticker={chartTicker}
+                  candles={priceData.candles}
+                  filings={timeline?.events || []}
+                  onFilingClick={setSelectedEvent}
+                />
+                <div className="pt-12 pb-6 text-center">
+                  <p className="text-xs text-gray-500">
+                    These summaries are AI-generated. Please refer to the original filings at{' '}
+                    <a href="https://www.sec.gov/edgar/searchedgar/companysearch" target="_blank" rel="noopener noreferrer" className="text-gray-400 underline hover:text-gray-300">
+                      SEC.gov
+                    </a>{' '}
+                    for complete information.
+                  </p>
+                </div>
+              </>
             ) : (
               <div className="text-gray-400 text-center py-12">
                 No price data available for {chartTicker}
