@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { getCompanies, getTimeline, getFiling, getPrices } from '../api'
+import { getCompanies, getTimeline, getFiling, getPrices, searchTickers } from '../api'
 
 export function useCompanies() {
   return useQuery({
@@ -27,6 +27,16 @@ export function useFiling(id: number) {
     queryKey: ['filing', id],
     queryFn: () => getFiling(id),
     enabled: !!id,
+  })
+}
+
+export function useTickerSearch(query: string) {
+  return useQuery({
+    queryKey: ['tickerSearch', query],
+    queryFn: () => searchTickers(query),
+    enabled: query.length >= 1,
+    staleTime: 1000 * 60 * 5,
+    placeholderData: (prev) => prev,
   })
 }
 

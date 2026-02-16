@@ -1,4 +1,4 @@
-from .edgar import EdgarService, COMPANY_CIKS
+from .edgar import EdgarService, TickerLookup
 from .summarizer import SummarizerService
 
-__all__ = ["EdgarService", "COMPANY_CIKS", "SummarizerService"]
+__all__ = ["EdgarService", "TickerLookup", "SummarizerService"]

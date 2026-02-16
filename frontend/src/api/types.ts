@@ -50,3 +50,9 @@ export interface PriceResponse {
   ticker: string
   candles: Candle[]
 }
+
+export interface TickerSearchResult {
+  ticker: string
+  cik: string
+  name: string
+}

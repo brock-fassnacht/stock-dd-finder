@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useTimeline, useCompanies, usePrices } from './hooks'
+import { useTimeline, useCompanies, usePrices, useTickerSearch } from './hooks'
 import { Timeline, Loading, ErrorMessage, StockChart } from './components'
 import { addCompany, fetchFilings } from './api'
-import type { TimelineEvent } from './api/types'
+import type { TimelineEvent, TickerSearchResult } from './api/types'
 
 type ViewMode = 'timeline' | 'chart'
-
-const AVAILABLE_TICKERS = ['ASTS', 'PLTR', 'TSLA', 'IREN']
 
 const FORM_TYPES = [
   { value: '4', label: 'Form 4 (Insider)' },
@@ -23,9 +21,9 @@ const FORM_TYPES = [
 function App() {
   const queryClient = useQueryClient()
   const [viewMode, setViewMode] = useState<ViewMode>('timeline')
-  const [tickerFilter, setTickerFilter] = useState<string | undefined>()
-  const [chartTicker, setChartTicker] = useState<string | undefined>()
-  // Track which form types are SHOWN (checked = visible)
+  const [activeTicker, setActiveTicker] = useState<string | undefined>()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showSearchResults, setShowSearchResults] = useState(false)
   const [selectedFormTypes, setSelectedFormTypes] = useState<string[]>(
     FORM_TYPES.map(ft => ft.value)
   )
@@ -33,54 +31,62 @@ function App() {
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
   const [showFormTypesDropdown, setShowFormTypesDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowFormTypesDropdown(false)
+      }
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSearchResults(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Compute excluded types (unchecked ones)
   const excludeFormTypes = FORM_TYPES
     .map(ft => ft.value)
     .filter(v => !selectedFormTypes.includes(v))
 
-  const { data: companies, isLoading: loadingCompanies } = useCompanies()
+  const { data: companies } = useCompanies()
+  const { data: searchResults } = useTickerSearch(searchQuery)
   const { data: timeline, isLoading: loadingTimeline, error } = useTimeline({
-    ticker: viewMode === 'chart' ? chartTicker : tickerFilter,
+    ticker: activeTicker,
     exclude_form_types: excludeFormTypes.length > 0 ? excludeFormTypes : undefined,
     limit: 200,
   })
   const { data: priceData, isLoading: loadingPrices } = usePrices(
-    viewMode === 'chart' ? chartTicker : undefined,
+    viewMode === 'chart' ? activeTicker : undefined,
     '1y'
   )
 
-  // Set default chart ticker when companies load
+  // Set default active ticker when companies load
   useEffect(() => {
-    if (companies?.length && !chartTicker) {
-      setChartTicker(companies[0].ticker)
+    if (companies?.length && !activeTicker) {
+      setActiveTicker(companies[0].ticker)
     }
-  }, [companies, chartTicker])
+  }, [companies, activeTicker])
 
-  const handleAddCompany = async (ticker: string) => {
+  const handleSelectTicker = async (result: TickerSearchResult) => {
+    setSearchQuery('')
+    setShowSearchResults(false)
     try {
-      await addCompany(ticker)
+      await addCompany(result.ticker)
       queryClient.invalidateQueries({ queryKey: ['companies'] })
-    } catch (err) {
-      alert((err as Error).message)
+    } catch {
+      // already tracked is fine
     }
+    setActiveTicker(result.ticker)
   }
 
   const handleFetch = async () => {
+    if (!activeTicker) return
     setFetching(true)
     try {
-      const result = await fetchFilings({ limit: 30, summarize: true })
+      const result = await fetchFilings({ ticker: activeTicker, limit: 30, summarize: true })
       alert(`Fetched ${result.fetched} filings, skipped ${result.skipped} duplicates`)
       queryClient.invalidateQueries({ queryKey: ['timeline'] })
     } catch (err) {
@@ -121,31 +127,56 @@ function App() {
               </button>
             </div>
 
-            {/* Ticker filter (timeline) or ticker select (chart) */}
-            {viewMode === 'timeline' ? (
+            {/* Ticker search */}
+            <div className="relative" ref={searchRef}>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => {
+                  setSearchQuery(e.target.value)
+                  setShowSearchResults(true)
+                }}
+                onFocus={() => { if (searchQuery) setShowSearchResults(true) }}
+                placeholder="Search ticker..."
+                className="px-3 py-1.5 border rounded text-sm w-48"
+              />
+              {showSearchResults && searchResults && searchResults.length > 0 && (
+                <div className="absolute top-full left-0 mt-1 bg-white border rounded shadow-lg z-50 w-80 max-h-64 overflow-y-auto">
+                  {searchResults.map(r => (
+                    <button
+                      key={r.ticker}
+                      onClick={() => handleSelectTicker(r)}
+                      className="w-full text-left px-3 py-2 hover:bg-blue-50 flex items-center gap-2 border-b last:border-b-0"
+                    >
+                      <span className="font-mono font-bold text-sm w-16">{r.ticker}</span>
+                      <span className="text-sm text-gray-600 truncate">{r.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Active ticker indicator */}
+            {activeTicker && (
+              <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-sm font-medium">
+                {activeTicker}
+              </span>
+            )}
+
+            {/* Tracked tickers quick-switch */}
+            {companies && companies.length > 1 && (
               <select
-                value={tickerFilter || ''}
-                onChange={e => setTickerFilter(e.target.value || undefined)}
+                value={activeTicker || ''}
+                onChange={e => setActiveTicker(e.target.value || undefined)}
                 className="px-3 py-1.5 border rounded text-sm"
               >
-                <option value="">All Companies</option>
-                {companies?.map(c => (
-                  <option key={c.ticker} value={c.ticker}>{c.ticker}</option>
-                ))}
-              </select>
-            ) : (
-              <select
-                value={chartTicker || ''}
-                onChange={e => setChartTicker(e.target.value || undefined)}
-                className="px-3 py-1.5 border rounded text-sm"
-              >
-                {companies?.map(c => (
+                {companies.map(c => (
                   <option key={c.ticker} value={c.ticker}>{c.ticker}</option>
                 ))}
               </select>
             )}
 
-            {/* Form types multi-select (checked = show) */}
+            {/* Form types multi-select */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setShowFormTypesDropdown(!showFormTypesDropdown)}
@@ -200,42 +231,12 @@ function App() {
             {/* Fetch button */}
             <button
               onClick={handleFetch}
-              disabled={fetching || !companies?.length}
+              disabled={fetching || !activeTicker}
               className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
             >
               {fetching ? 'Fetching...' : 'Fetch Filings'}
             </button>
           </div>
-        </div>
-
-        {/* Company chips */}
-        <div className="flex items-center gap-2 mt-3">
-          <span className="text-sm text-gray-500">Tracking:</span>
-          {loadingCompanies ? (
-            <span className="text-sm text-gray-400">Loading...</span>
-          ) : companies?.length ? (
-            companies.map(c => (
-              <span
-                key={c.ticker}
-                className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-sm"
-              >
-                {c.ticker}
-              </span>
-            ))
-          ) : (
-            <span className="text-sm text-gray-400">None</span>
-          )}
-
-          {/* Add company buttons */}
-          {AVAILABLE_TICKERS.filter(t => !companies?.find(c => c.ticker === t)).map(ticker => (
-            <button
-              key={ticker}
-              onClick={() => handleAddCompany(ticker)}
-              className="px-2 py-0.5 border border-dashed border-gray-300 text-gray-500 rounded text-sm hover:border-blue-500 hover:text-blue-500"
-            >
-              + {ticker}
-            </button>
-          ))}
         </div>
       </header>
 
@@ -243,7 +244,11 @@ function App() {
       <main className="flex-1 overflow-hidden relative">
         {viewMode === 'timeline' ? (
           // Timeline view
-          error ? (
+          !activeTicker ? (
+            <div className="flex items-center justify-center h-full text-gray-500 py-12">
+              Search for a ticker to get started
+            </div>
+          ) : error ? (
             <div className="p-4">
               <ErrorMessage message={(error as Error).message} />
             </div>
@@ -258,9 +263,9 @@ function App() {
         ) : (
           // Chart view
           <div className="bg-gray-900 p-4">
-            {!chartTicker ? (
+            {!activeTicker ? (
               <div className="text-gray-400 text-center py-12">
-                Select a ticker to view the chart
+                Search for a ticker to view the chart
               </div>
             ) : loadingPrices ? (
               <div className="flex items-center justify-center py-12">
@@ -269,8 +274,8 @@ function App() {
             ) : priceData?.candles?.length ? (
               <>
                 <StockChart
-                  key={chartTicker}
-                  ticker={chartTicker}
+                  key={activeTicker}
+                  ticker={activeTicker}
                   candles={priceData.candles}
                   filings={timeline?.events || []}
                   onFilingClick={setSelectedEvent}
@@ -287,7 +292,7 @@ function App() {
               </>
             ) : (
               <div className="text-gray-400 text-center py-12">
-                No price data available for {chartTicker}
+                No price data available for {activeTicker}
               </div>
             )}
           </div>

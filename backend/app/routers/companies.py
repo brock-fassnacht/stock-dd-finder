@@ -1,11 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import Company
 from ..schemas import CompanyCreate, CompanyResponse
-from ..services import COMPANY_CIKS
+from ..services import TickerLookup
 
 router = APIRouter(prefix="/api/companies", tags=["companies"])
+
+
+@router.get("/search")
+async def search_tickers(q: str = Query(..., min_length=1, description="Search query")):
+    """Search for tickers by symbol or company name."""
+    lookup = TickerLookup.get_instance()
+    results = await lookup.search(q, limit=10)
+    return [
+        {"ticker": r.ticker, "cik": r.cik, "name": r.name}
+        for r in results
+    ]
 
 
 @router.get("", response_model=list[CompanyResponse])
@@ -15,27 +26,28 @@ def list_companies(db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=CompanyResponse)
-def add_company(data: CompanyCreate, db: Session = Depends(get_db)):
+async def add_company(data: CompanyCreate, db: Session = Depends(get_db)):
     """Add a company to track by ticker."""
     ticker = data.ticker.upper()
 
     # Check if already exists
     existing = db.query(Company).filter(Company.ticker == ticker).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Company already tracked")
+        return existing
 
-    # Look up CIK from known list
-    if ticker not in COMPANY_CIKS:
+    # Look up CIK dynamically from SEC data
+    lookup = TickerLookup.get_instance()
+    info = await lookup.lookup(ticker)
+    if not info:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown ticker. Supported: {', '.join(COMPANY_CIKS.keys())}"
+            detail=f"Unknown ticker: {ticker}"
         )
 
-    company_info = COMPANY_CIKS[ticker]
     company = Company(
         ticker=ticker,
-        name=company_info["name"],
-        cik=company_info["cik"],
+        name=info.name,
+        cik=info.cik,
     )
     db.add(company)
     db.commit()

@@ -1,6 +1,7 @@
 import httpx
+import time
 from datetime import date, datetime
-from typing import List, Optional
+from typing import List, Optional, Dict
 from dataclasses import dataclass
 
 
@@ -11,6 +12,87 @@ class EdgarFiling:
     filed_date: date
     document_url: str
     description: str
+
+
+@dataclass
+class TickerInfo:
+    ticker: str
+    cik: str
+    name: str
+
+
+class TickerLookup:
+    """Downloads and caches SEC's company_tickers.json for ticker/CIK lookup."""
+
+    TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
+    HEADERS = {
+        "User-Agent": "StockDDFinder brock@example.com",
+        "Accept-Encoding": "gzip, deflate",
+    }
+    CACHE_TTL = 3600 * 24  # 24 hours
+
+    _instance = None
+
+    def __init__(self):
+        self._tickers: List[TickerInfo] = []
+        self._by_ticker: Dict[str, TickerInfo] = {}
+        self._loaded_at: float = 0
+
+    @classmethod
+    def get_instance(cls) -> "TickerLookup":
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    async def _ensure_loaded(self):
+        if self._tickers and (time.time() - self._loaded_at) < self.CACHE_TTL:
+            return
+        async with httpx.AsyncClient() as client:
+            response = await client.get(self.TICKERS_URL, headers=self.HEADERS, timeout=30.0)
+            response.raise_for_status()
+            data = response.json()
+
+        tickers = []
+        by_ticker = {}
+        for entry in data.values():
+            info = TickerInfo(
+                ticker=entry["ticker"].upper(),
+                cik=str(entry["cik_str"]),
+                name=entry["title"],
+            )
+            tickers.append(info)
+            by_ticker[info.ticker] = info
+
+        self._tickers = tickers
+        self._by_ticker = by_ticker
+        self._loaded_at = time.time()
+
+    async def search(self, query: str, limit: int = 10) -> List[TickerInfo]:
+        """Fuzzy-match tickers and company names."""
+        await self._ensure_loaded()
+        query_upper = query.upper().strip()
+        if not query_upper:
+            return []
+
+        exact = []
+        starts_with = []
+        contains = []
+
+        for info in self._tickers:
+            if info.ticker == query_upper:
+                exact.append(info)
+            elif info.ticker.startswith(query_upper):
+                starts_with.append(info)
+            elif query_upper in info.name.upper():
+                contains.append(info)
+
+        results = exact + starts_with + contains
+        return results[:limit]
+
+    async def lookup(self, ticker: str) -> Optional[TickerInfo]:
+        """Look up a specific ticker."""
+        await self._ensure_loaded()
+        return self._by_ticker.get(ticker.upper())
 
 
 class EdgarService:
@@ -90,10 +172,3 @@ class EdgarService:
         return filings
 
 
-# Known CIKs for target companies
-COMPANY_CIKS = {
-    "ASTS": {"cik": "1780312", "name": "AST SpaceMobile, Inc."},
-    "PLTR": {"cik": "1321655", "name": "Palantir Technologies Inc."},
-    "TSLA": {"cik": "1318605", "name": "Tesla, Inc."},
-    "IREN": {"cik": "1878848", "name": "Iris Energy Limited"},
-}
