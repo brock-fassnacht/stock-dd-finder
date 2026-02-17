@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     # Database (SQLite for local, PostgreSQL for prod)
     database_url: str = "sqlite:///./stock_dd.db"
 
+    # CORS
+    allowed_origins: str = "http://localhost:5173,http://localhost:3000"
+
     # App settings
     debug: bool = False
 
