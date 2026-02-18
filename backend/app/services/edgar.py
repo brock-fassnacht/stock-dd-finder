@@ -115,6 +115,7 @@ class EdgarService:
         cik: str,
         form_types: List[str] = None,
         limit: int = 50,
+        since_date: Optional[date] = None,
     ) -> List[EdgarFiling]:
         """Fetch recent filings for a company."""
         cik_padded = self._format_cik(cik)
@@ -137,25 +138,25 @@ class EdgarService:
         descriptions = recent.get("primaryDocDescription", [])
         primary_docs = recent.get("primaryDocument", [])
 
-        for i in range(min(len(accession_numbers), limit * 2)):
-            form_type = forms[i] if i < len(forms) else ""
-
-            if form_types and form_type not in form_types:
-                continue
-
-            accession = accession_numbers[i]
-            accession_no_dash = accession.replace("-", "")
-            primary_doc = primary_docs[i] if i < len(primary_docs) else ""
-
-            # Link directly to the primary document
-            doc_url = f"{self.BASE_URL}/Archives/edgar/data/{cik}/{accession_no_dash}/{primary_doc}"
-
+        for i in range(len(accession_numbers)):
             filed_date_str = filing_dates[i] if i < len(filing_dates) else ""
             try:
                 filed_date = datetime.strptime(filed_date_str, "%Y-%m-%d").date()
             except ValueError:
                 continue
 
+            # Filings are in reverse chronological order — stop once past the cutoff
+            if since_date and filed_date < since_date:
+                break
+
+            form_type = forms[i] if i < len(forms) else ""
+            if form_types and form_type not in form_types:
+                continue
+
+            accession = accession_numbers[i]
+            accession_no_dash = accession.replace("-", "")
+            primary_doc = primary_docs[i] if i < len(primary_docs) else ""
+            doc_url = f"{self.BASE_URL}/Archives/edgar/data/{cik}/{accession_no_dash}/{primary_doc}"
             description = descriptions[i] if i < len(descriptions) else ""
 
             filings.append(EdgarFiling(

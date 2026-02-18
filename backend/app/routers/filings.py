@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -52,7 +52,8 @@ async def _run_sync():
 
         edgar = EdgarService()
         summarizer = SummarizerService()
-        logger.info(f"Full sync started for {len(companies)} companies")
+        since_date = date.today() - timedelta(days=365)
+        logger.info(f"Full sync started for {len(companies)} companies since {since_date}")
 
         for company in companies:
             _sync_state["current"] = company.ticker
@@ -61,7 +62,8 @@ async def _run_sync():
                 filings = await edgar.get_company_filings(
                     cik=company.cik,
                     form_types=FORM_TYPES,
-                    limit=20,
+                    limit=200,
+                    since_date=since_date,
                 )
 
                 for ef in filings:
@@ -72,22 +74,24 @@ async def _run_sync():
                         _sync_state["skipped"] += 1
                         continue
 
+                    # Skip Groq summarization for Form 4 — high volume, low value
                     headline = None
-                    try:
-                        _sync_state["message"] = (
-                            f"{company.ticker}: summarizing {ef.form_type} "
-                            f"filed {ef.filed_date}..."
-                        )
-                        text = await summarizer.fetch_filing_text(ef.document_url)
-                        headline = summarizer.generate_headline(
-                            ef.form_type, company.name, text
-                        )
-                        # Groq free tier: 30 req/min — sleep 2s between calls
-                        await asyncio.sleep(2)
-                    except Exception as e:
-                        _sync_state["errors"].append(
-                            f"{company.ticker} {ef.form_type}: {str(e)}"
-                        )
+                    if ef.form_type != "4":
+                        try:
+                            _sync_state["message"] = (
+                                f"{company.ticker}: summarizing {ef.form_type} "
+                                f"filed {ef.filed_date}..."
+                            )
+                            text = await summarizer.fetch_filing_text(ef.document_url)
+                            headline = summarizer.generate_headline(
+                                ef.form_type, company.name, text
+                            )
+                            # Groq free tier: 30 req/min — sleep 2s between calls
+                            await asyncio.sleep(2)
+                        except Exception as e:
+                            _sync_state["errors"].append(
+                                f"{company.ticker} {ef.form_type}: {str(e)}"
+                            )
 
                     db.add(Filing(
                         company_id=company.id,
