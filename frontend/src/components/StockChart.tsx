@@ -294,10 +294,10 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
     <div>
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-xl font-bold text-white">{ticker} Price Chart</h2>
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-4 text-sm flex-wrap">
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-blue-500"></span>
-            <span className="text-gray-400">10-K/10-Q</span>
+            <span className="text-gray-400">10-K / 10-Q</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-yellow-500"></span>
@@ -306,6 +306,14 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-purple-500"></span>
             <span className="text-gray-400">Form 4</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-green-500"></span>
+            <span className="text-gray-400">DEF 14A</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-green-500"></span>
+            <span className="text-gray-400">S-1</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-green-500"></span>

@@ -6,19 +6,6 @@ interface TimelineProps {
   onEventClick?: (event: TimelineEvent) => void
 }
 
-const TICKER_COLORS: Record<string, string> = {
-  ASTS: 'bg-blue-500',
-  PLTR: 'bg-purple-500',
-  TSLA: 'bg-red-500',
-  IREN: 'bg-green-500',
-}
-
-const TICKER_BORDER: Record<string, string> = {
-  ASTS: 'border-blue-500',
-  PLTR: 'border-purple-500',
-  TSLA: 'border-red-500',
-  IREN: 'border-green-500',
-}
 
 const CARDS_PER_ROW = 5
 
@@ -173,21 +160,14 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
                     href={event.document_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`
-                      timeline-card p-3 rounded-lg shadow-lg cursor-pointer
-                      border-l-4 ${TICKER_BORDER[event.ticker] || 'border-gray-600'}
-                      flex flex-col no-underline
-                    `}
+                    className="timeline-card p-3 rounded-lg shadow-lg cursor-pointer border-l-4 border-white flex flex-col no-underline"
                     style={{ backgroundColor: 'rgb(31, 41, 55)', minHeight: '150px' }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(75, 85, 99)'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(31, 41, 55)'}
                   >
                     {/* Header */}
                     <div className="flex items-center justify-between mb-1">
-                      <span className={`
-                        text-[11px] font-bold px-1.5 py-0.5 rounded text-white
-                        ${TICKER_COLORS[event.ticker] || 'bg-gray-500'}
-                      `}>
+                      <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-white text-gray-900">
                         {event.ticker}
                       </span>
                       <span
