@@ -202,7 +202,7 @@ function App() {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setShowFormTypesDropdown(!showFormTypesDropdown)}
-                className="px-3 py-1.5 border rounded text-sm flex items-center gap-2 bg-white"
+                className="px-3 py-1.5 border rounded text-sm flex items-center gap-2 bg-white opacity-0 hover:opacity-100 transition-opacity duration-200"
               >
                 <span>Form Types</span>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
