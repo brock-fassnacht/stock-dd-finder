@@ -1,5 +1,7 @@
+import re
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 from contextlib import asynccontextmanager
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -46,13 +48,57 @@ app = FastAPI(
 )
 
 settings = get_settings()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.allowed_origins.split(","),
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+# Build list of exact origins and wildcard patterns from ALLOWED_ORIGINS
+_cors_exact: list[str] = []
+_cors_patterns: list[re.Pattern[str]] = []
+for origin in settings.allowed_origins.split(","):
+    origin = origin.strip()
+    if "*" in origin:
+        # Convert wildcard pattern like https://*.vercel.app to regex
+        pattern = re.escape(origin).replace(r"\*", r"[a-zA-Z0-9\-]+")
+        _cors_patterns.append(re.compile(f"^{pattern}$"))
+    else:
+        _cors_exact.append(origin)
+
+
+class WildcardCORSMiddleware:
+    """Wraps CORSMiddleware but dynamically matches wildcard origin patterns."""
+
+    def __init__(self, app: ASGIApp):
+        # Base middleware allows exact origins
+        self.app = app
+        self.base = CORSMiddleware(
+            app,
+            allow_origins=_cors_exact,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] not in ("http", "websocket") or not _cors_patterns:
+            await self.base(scope, receive, send)
+            return
+
+        headers = dict(scope.get("headers", []))
+        origin = headers.get(b"origin", b"").decode()
+
+        if origin and any(p.match(origin) for p in _cors_patterns):
+            # Origin matches a wildcard — create a middleware that allows it
+            middleware = CORSMiddleware(
+                self.app,
+                allow_origins=[origin],
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
+            await middleware(scope, receive, send)
+        else:
+            await self.base(scope, receive, send)
+
+
+app.add_middleware(WildcardCORSMiddleware)
 
 app.include_router(companies_router)
 app.include_router(filings_router)
