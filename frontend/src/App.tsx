@@ -7,6 +7,17 @@ import type { TimelineEvent, TickerSearchResult } from './api/types'
 
 type ViewMode = 'timeline' | 'chart'
 
+const FORM_TYPES = [
+  { value: '4', label: 'Form 4 (Insider)' },
+  { value: '10-K', label: '10-K (Annual)' },
+  { value: '10-Q', label: '10-Q (Quarterly)' },
+  { value: '8-K', label: '8-K (Current)' },
+  { value: 'DEF 14A', label: 'DEF 14A (Proxy)' },
+  { value: 'S-1', label: 'S-1 (IPO)' },
+  { value: 'SC 13G', label: 'SC 13G (Ownership)' },
+  { value: 'SC 13D', label: 'SC 13D (Ownership)' },
+]
+
 function App() {
   const queryClient = useQueryClient()
   const [viewMode, setViewMode] = useState<ViewMode>('timeline')
@@ -24,11 +35,16 @@ function App() {
   const [adminUnlocked, setAdminUnlocked] = useState(false)
   const [adminPassword, setAdminPassword] = useState('')
   const [adminError, setAdminError] = useState(false)
+  const [showFormTypesDropdown, setShowFormTypesDropdown] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLDivElement>(null)
 
-  // Close search dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowFormTypesDropdown(false)
+      }
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowSearchResults(false)
       }
@@ -37,10 +53,15 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  const excludeFormTypes = FORM_TYPES
+    .map(ft => ft.value)
+    .filter(v => !selectedFormTypes.includes(v))
+
   const { data: companies } = useCompanies()
   const { data: searchResults } = useTickerSearch(searchQuery)
   const { data: timeline, isLoading: loadingTimeline, error } = useTimeline({
     ticker: activeTicker,
+    exclude_form_types: excludeFormTypes.length > 0 ? excludeFormTypes : undefined,
     limit: 200,
   })
   const { data: priceData, isLoading: loadingPrices } = usePrices(
@@ -189,6 +210,58 @@ function App() {
                 ))}
               </select>
             )}
+
+            {/* Form types multi-select */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setShowFormTypesDropdown(!showFormTypesDropdown)}
+                className="px-3 py-1.5 border rounded text-sm flex items-center gap-2 bg-white"
+              >
+                <span>Form Types</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showFormTypesDropdown && (
+                <div className="absolute top-full left-0 mt-1 bg-white border rounded shadow-lg z-50 min-w-[200px]">
+                  <div className="p-2 border-b text-xs text-gray-500 font-medium">Show form types:</div>
+                  {FORM_TYPES.map(ft => (
+                    <label
+                      key={ft.value}
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedFormTypes.includes(ft.value)}
+                        onChange={e => {
+                          if (e.target.checked) {
+                            setSelectedFormTypes(prev => [...prev, ft.value])
+                          } else {
+                            setSelectedFormTypes(prev => prev.filter(t => t !== ft.value))
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm">{ft.label}</span>
+                    </label>
+                  ))}
+                  <div className="flex border-t">
+                    <button
+                      onClick={() => setSelectedFormTypes(FORM_TYPES.map(ft => ft.value))}
+                      className="flex-1 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50"
+                    >
+                      Select all
+                    </button>
+                    <button
+                      onClick={() => setSelectedFormTypes([])}
+                      className="flex-1 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 border-l"
+                    >
+                      Clear all
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Fetch button */}
             <button
