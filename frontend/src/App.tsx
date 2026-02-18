@@ -34,6 +34,7 @@ function App() {
   const [adminError, setAdminError] = useState(false)
   const [showFormTypesDropdown, setShowFormTypesDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const dropdownHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchRef = useRef<HTMLDivElement>(null)
 
   // Close search results when clicking outside
@@ -184,8 +185,13 @@ function App() {
             <div
               className="relative"
               ref={dropdownRef}
-              onMouseEnter={() => setShowFormTypesDropdown(true)}
-              onMouseLeave={() => setShowFormTypesDropdown(false)}
+              onMouseEnter={() => {
+                if (dropdownHideTimer.current) clearTimeout(dropdownHideTimer.current)
+                setShowFormTypesDropdown(true)
+              }}
+              onMouseLeave={() => {
+                dropdownHideTimer.current = setTimeout(() => setShowFormTypesDropdown(false), 150)
+              }}
             >
               <button
                 className="px-3 py-1.5 border rounded text-sm flex items-center gap-2 bg-white"
@@ -297,13 +303,6 @@ function App() {
             )}
           </div>
         )}
-        {/* Refresh button */}
-        <button
-          onClick={() => window.location.reload()}
-          className="absolute top-2 right-2 px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm text-white z-20"
-        >
-          Refresh
-        </button>
       </main>
 
       {/* Event detail modal */}
