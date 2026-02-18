@@ -56,7 +56,7 @@ for origin in settings.allowed_origins.split(","):
     origin = origin.strip()
     if "*" in origin:
         # Convert wildcard pattern like https://*.vercel.app to regex
-        pattern = re.escape(origin).replace(r"\*", r"[a-zA-Z0-9\-]+")
+        pattern = re.escape(origin).replace(r"\*", r"[a-zA-Z0-9\.\-]+")
         _cors_patterns.append(re.compile(f"^{pattern}$"))
     else:
         _cors_exact.append(origin)
