@@ -119,6 +119,7 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
           top: 0;
           left: 0;
           right: 0;
+          height: auto;
           z-index: 50;
           box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
         }
