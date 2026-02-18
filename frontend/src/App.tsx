@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTimeline, useCompanies, usePrices, useTickerSearch } from './hooks'
 import { Timeline, Loading, ErrorMessage, StockChart, AdminPanel } from './components'
-import { logInterest, fetchFilings, verifyAdmin } from './api'
+import { logInterest, verifyAdmin } from './api'
 import type { TimelineEvent, TickerSearchResult } from './api/types'
 
 type ViewMode = 'timeline' | 'chart'
@@ -27,7 +27,6 @@ function App() {
   const [selectedFormTypes, setSelectedFormTypes] = useState<string[]>(
     FORM_TYPES.map(ft => ft.value)
   )
-  const [fetching, setFetching] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
   const [unsupportedMsg, setUnsupportedMsg] = useState<string | null>(null)
   const unsupportedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -106,18 +105,6 @@ function App() {
     }
   }
 
-  const handleFetch = async () => {
-    if (!activeTicker) return
-    setFetching(true)
-    try {
-      const result = await fetchFilings({ ticker: activeTicker, limit: 30, summarize: true })
-      alert(`Fetched ${result.fetched} filings, skipped ${result.skipped} duplicates`)
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
-    } catch (err) {
-      alert((err as Error).message)
-    }
-    setFetching(false)
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -202,7 +189,7 @@ function App() {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setShowFormTypesDropdown(!showFormTypesDropdown)}
-                className="px-3 py-1.5 border rounded text-sm flex items-center gap-2 bg-white opacity-0 hover:opacity-100 transition-opacity duration-200"
+                className={`px-3 py-1.5 border rounded text-sm flex items-center gap-2 bg-white transition-opacity duration-200 ${showFormTypesDropdown ? 'opacity-100' : 'opacity-0 hover:opacity-100'}`}
               >
                 <span>Form Types</span>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -250,14 +237,6 @@ function App() {
               )}
             </div>
 
-            {/* Fetch button */}
-            <button
-              onClick={handleFetch}
-              disabled={fetching || !activeTicker}
-              className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-            >
-              {fetching ? 'Fetching...' : 'Fetch Filings'}
-            </button>
           </div>
         </div>
       </header>
