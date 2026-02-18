@@ -46,8 +46,15 @@ export function AdminPanel({ onClose }: Props) {
     }, 2000)
   }
 
-  useEffect(() => () => {
-    if (pollRef.current) clearInterval(pollRef.current)
+  // Fetch status on mount so reopening the panel always shows latest state
+  useEffect(() => {
+    getSyncStatus().then(status => {
+      setSyncStatus(status)
+      if (status.running) startPolling()
+    })
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
   }, [])
 
   const handleSyncAll = async () => {
