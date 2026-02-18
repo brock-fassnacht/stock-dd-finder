@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { useTimeline, useCompanies, usePrices, useTickerSearch } from './hooks'
 import { Timeline, Loading, ErrorMessage, StockChart, AdminPanel } from './components'
 import { logInterest, verifyAdmin } from './api'
@@ -19,7 +18,6 @@ const FORM_TYPES = [
 ]
 
 function App() {
-  const queryClient = useQueryClient()
   const [viewMode, setViewMode] = useState<ViewMode>('timeline')
   const [activeTicker, setActiveTicker] = useState<string | undefined>()
   const [searchQuery, setSearchQuery] = useState('')
