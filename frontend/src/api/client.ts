@@ -76,6 +76,12 @@ export async function fetchFilings(params?: {
   return fetchJson(`/filings/fetch${query ? `?${query}` : ''}`, { method: 'POST' })
 }
 
+export async function logInterest(ticker: string, name: string): Promise<void> {
+  return fetchJson(`/companies/interest?ticker=${encodeURIComponent(ticker)}&name=${encodeURIComponent(name)}`, {
+    method: 'POST',
+  })
+}
+
 // Ticker search
 export async function searchTickers(query: string): Promise<TickerSearchResult[]> {
   return fetchJson(`/companies/search?q=${encodeURIComponent(query)}`)

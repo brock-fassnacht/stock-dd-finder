@@ -24,3 +24,6 @@ pydantic-settings>=2.1.0
 
 # Stock price data
 yfinance>=0.2.0
+
+# Scheduler
+apscheduler>=3.10.0

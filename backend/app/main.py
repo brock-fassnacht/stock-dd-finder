@@ -2,16 +2,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from .database import engine, Base
 from .routers import companies_router, filings_router, prices_router
 from .config import get_settings
+from .services.sync import sync_all_companies
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+scheduler = AsyncIOScheduler()
 
 
 @asynccontextmanager
@@ -22,7 +26,15 @@ async def lifespan(app: FastAPI):
         logger.info("Database tables created/verified")
     else:
         logger.warning("Database not configured - set DATABASE_URL in .env")
+
+    # Run daily at 06:00 UTC
+    scheduler.add_job(sync_all_companies, "cron", hour=6, minute=0)
+    scheduler.start()
+    logger.info("Scheduler started: daily sync at 06:00 UTC")
+
     yield
+
+    scheduler.shutdown()
     logger.info("Shutting down...")
 
 

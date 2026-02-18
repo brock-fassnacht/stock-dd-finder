@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTimeline, useCompanies, usePrices, useTickerSearch } from './hooks'
 import { Timeline, Loading, ErrorMessage, StockChart } from './components'
-import { addCompany, fetchFilings } from './api'
+import { logInterest, fetchFilings } from './api'
 import type { TimelineEvent, TickerSearchResult } from './api/types'
 
 type ViewMode = 'timeline' | 'chart'
@@ -29,6 +29,8 @@ function App() {
   )
   const [fetching, setFetching] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
+  const [unsupportedMsg, setUnsupportedMsg] = useState<string | null>(null)
+  const unsupportedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [showFormTypesDropdown, setShowFormTypesDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLDivElement>(null)
@@ -73,13 +75,18 @@ function App() {
   const handleSelectTicker = async (result: TickerSearchResult) => {
     setSearchQuery('')
     setShowSearchResults(false)
-    try {
-      await addCompany(result.ticker)
-      queryClient.invalidateQueries({ queryKey: ['companies'] })
-    } catch {
-      // already tracked is fine
+
+    const isSupported = companies?.some(c => c.ticker === result.ticker)
+
+    if (isSupported) {
+      setUnsupportedMsg(null)
+      setActiveTicker(result.ticker)
+    } else {
+      logInterest(result.ticker, result.name).catch(() => {})
+      if (unsupportedTimer.current) clearTimeout(unsupportedTimer.current)
+      setUnsupportedMsg(`${result.ticker} is not yet supported — we've noted your interest!`)
+      unsupportedTimer.current = setTimeout(() => setUnsupportedMsg(null), 5000)
     }
-    setActiveTicker(result.ticker)
   }
 
   const handleFetch = async () => {
@@ -140,18 +147,29 @@ function App() {
                 placeholder="Search ticker..."
                 className="px-3 py-1.5 border rounded text-sm w-48"
               />
-              {showSearchResults && searchResults && searchResults.length > 0 && (
+              {unsupportedMsg && (
+                <div className="absolute top-full left-0 mt-1 bg-amber-50 border border-amber-300 text-amber-800 text-xs rounded px-3 py-2 z-50 w-72 shadow">
+                  {unsupportedMsg}
+                </div>
+              )}
+              {!unsupportedMsg && showSearchResults && searchResults && searchResults.length > 0 && (
                 <div className="absolute top-full left-0 mt-1 bg-white border rounded shadow-lg z-50 w-80 max-h-64 overflow-y-auto">
-                  {searchResults.map(r => (
-                    <button
-                      key={r.ticker}
-                      onClick={() => handleSelectTicker(r)}
-                      className="w-full text-left px-3 py-2 hover:bg-blue-50 flex items-center gap-2 border-b last:border-b-0"
-                    >
-                      <span className="font-mono font-bold text-sm w-16">{r.ticker}</span>
-                      <span className="text-sm text-gray-600 truncate">{r.name}</span>
-                    </button>
-                  ))}
+                  {searchResults.map(r => {
+                    const supported = companies?.some(c => c.ticker === r.ticker)
+                    return (
+                      <button
+                        key={r.ticker}
+                        onClick={() => handleSelectTicker(r)}
+                        className="w-full text-left px-3 py-2 hover:bg-blue-50 flex items-center gap-2 border-b last:border-b-0"
+                      >
+                        <span className="font-mono font-bold text-sm w-16">{r.ticker}</span>
+                        <span className="text-sm text-gray-600 truncate flex-1">{r.name}</span>
+                        {supported && (
+                          <span className="text-xs text-green-600 font-medium shrink-0">supported</span>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>

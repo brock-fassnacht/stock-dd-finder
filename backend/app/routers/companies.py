@@ -1,9 +1,12 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
-from ..models import Company
+from ..models import Company, InterestLog
 from ..schemas import CompanyCreate, CompanyResponse
 from ..services import TickerLookup
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/companies", tags=["companies"])
 
@@ -53,6 +56,20 @@ async def add_company(data: CompanyCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(company)
     return company
+
+
+@router.post("/interest")
+def log_interest(
+    ticker: str = Query(...),
+    name: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    """Log user interest in an unsupported ticker."""
+    ticker = ticker.upper()
+    db.add(InterestLog(ticker=ticker, name=name))
+    db.commit()
+    logger.info(f"Interest logged: {ticker} ({name})")
+    return {"message": "Interest noted"}
 
 
 @router.delete("/{ticker}")
