@@ -167,7 +167,7 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
                   >
                     {/* Header */}
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-white text-gray-900">
+                      <span className="text-[11px] font-bold text-white">
                         {event.ticker}
                       </span>
                       <span
