@@ -1,15 +1,146 @@
+import asyncio
+import logging
+from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import Optional, List
-from datetime import date
-from ..database import get_db
+from ..database import get_db, SessionLocal
 from ..models import Company, Filing
 from ..schemas import FilingResponse, FilingDetail, TimelineResponse
 from ..schemas.filing import TimelineEvent
 from ..services import EdgarService, SummarizerService
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/filings", tags=["filings"])
+
+FORM_TYPES = ["10-K", "10-Q", "8-K", "4", "S-1", "DEF 14A"]
+
+# Module-level sync state — updated by the background task
+_sync_state: dict = {
+    "running": False,
+    "fetched": 0,
+    "skipped": 0,
+    "errors": [],
+    "current": None,
+    "message": "No sync has run yet",
+    "started_at": None,
+    "completed_at": None,
+}
+
+
+async def _run_sync():
+    global _sync_state
+    _sync_state = {
+        "running": True,
+        "fetched": 0,
+        "skipped": 0,
+        "errors": [],
+        "current": None,
+        "message": "Starting sync...",
+        "started_at": datetime.utcnow().isoformat(),
+        "completed_at": None,
+    }
+
+    db = SessionLocal()
+    try:
+        companies = db.query(Company).all()
+        if not companies:
+            _sync_state.update({"running": False, "message": "No companies tracked"})
+            return
+
+        edgar = EdgarService()
+        summarizer = SummarizerService()
+        logger.info(f"Full sync started for {len(companies)} companies")
+
+        for company in companies:
+            _sync_state["current"] = company.ticker
+            _sync_state["message"] = f"Fetching filings for {company.ticker}..."
+            try:
+                filings = await edgar.get_company_filings(
+                    cik=company.cik,
+                    form_types=FORM_TYPES,
+                    limit=20,
+                )
+
+                for ef in filings:
+                    existing = db.query(Filing).filter(
+                        Filing.accession_number == ef.accession_number
+                    ).first()
+                    if existing:
+                        _sync_state["skipped"] += 1
+                        continue
+
+                    headline = None
+                    try:
+                        _sync_state["message"] = (
+                            f"{company.ticker}: summarizing {ef.form_type} "
+                            f"filed {ef.filed_date}..."
+                        )
+                        text = await summarizer.fetch_filing_text(ef.document_url)
+                        headline = summarizer.generate_headline(
+                            ef.form_type, company.name, text
+                        )
+                        # Groq free tier: 30 req/min — sleep 2s between calls
+                        await asyncio.sleep(2)
+                    except Exception as e:
+                        _sync_state["errors"].append(
+                            f"{company.ticker} {ef.form_type}: {str(e)}"
+                        )
+
+                    db.add(Filing(
+                        company_id=company.id,
+                        accession_number=ef.accession_number,
+                        form_type=ef.form_type,
+                        filed_date=ef.filed_date,
+                        document_url=ef.document_url,
+                        headline=headline,
+                    ))
+                    _sync_state["fetched"] += 1
+
+                db.commit()
+                await asyncio.sleep(0.5)  # SEC rate limit between companies
+
+            except Exception as e:
+                _sync_state["errors"].append(f"{company.ticker}: {str(e)}")
+                logger.error(f"Sync error for {company.ticker}: {e}")
+
+        fetched = _sync_state["fetched"]
+        skipped = _sync_state["skipped"]
+        _sync_state.update({
+            "running": False,
+            "current": None,
+            "message": f"Done — {fetched} new filings added, {skipped} already stored",
+            "completed_at": datetime.utcnow().isoformat(),
+        })
+        logger.info(f"Full sync complete: {fetched} fetched, {skipped} skipped")
+
+    except Exception as e:
+        _sync_state.update({
+            "running": False,
+            "current": None,
+            "message": f"Sync failed: {str(e)}",
+            "completed_at": datetime.utcnow().isoformat(),
+        })
+        logger.error(f"Sync failed: {e}")
+    finally:
+        db.close()
+
+
+@router.get("/sync-status")
+def get_sync_status():
+    """Get the current status of a running or completed sync."""
+    return _sync_state
+
+
+@router.post("/sync")
+async def start_sync(background_tasks: BackgroundTasks):
+    """Start a full sync of all tracked companies with AI summarization."""
+    if _sync_state["running"]:
+        return {"message": "Sync already in progress", "status": _sync_state}
+    background_tasks.add_task(_run_sync)
+    return {"message": "Sync started"}
 
 
 def get_form_description(form_type: str) -> str:

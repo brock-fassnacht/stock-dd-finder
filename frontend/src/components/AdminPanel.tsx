@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCompanies, useTickerSearch } from '../hooks'
-import { addCompany, removeCompany } from '../api'
-import type { TickerSearchResult } from '../api/types'
+import { addCompany, removeCompany, startSync, getSyncStatus } from '../api'
+import type { TickerSearchResult, SyncStatus } from '../api/types'
 
 interface Props {
   onClose: () => void
@@ -16,7 +16,9 @@ export function AdminPanel({ onClose }: Props) {
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<string | null>(null)
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null)
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
   const searchRef = useRef<HTMLDivElement>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const { data: searchResults } = useTickerSearch(searchQuery)
 
@@ -29,6 +31,31 @@ export function AdminPanel({ onClose }: Props) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Poll sync status every 2s while running; stop when done
+  const startPolling = () => {
+    if (pollRef.current) return
+    pollRef.current = setInterval(async () => {
+      const status = await getSyncStatus()
+      setSyncStatus(status)
+      if (!status.running) {
+        clearInterval(pollRef.current!)
+        pollRef.current = null
+        queryClient.invalidateQueries({ queryKey: ['timeline'] })
+      }
+    }, 2000)
+  }
+
+  useEffect(() => () => {
+    if (pollRef.current) clearInterval(pollRef.current)
+  }, [])
+
+  const handleSyncAll = async () => {
+    await startSync()
+    const status = await getSyncStatus()
+    setSyncStatus(status)
+    startPolling()
+  }
 
   const flash = (text: string, error = false) => {
     setMessage({ text, error })
@@ -123,6 +150,44 @@ export function AdminPanel({ onClose }: Props) {
               {message.text}
             </p>
           )}
+
+          {/* Sync All */}
+          <div className="border rounded p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Sync All Filings</p>
+                <p className="text-xs text-gray-400">Fetches + summarizes new filings for all tracked stocks</p>
+              </div>
+              <button
+                onClick={handleSyncAll}
+                disabled={syncStatus?.running}
+                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              >
+                {syncStatus?.running ? 'Running...' : 'Sync All'}
+              </button>
+            </div>
+
+            {syncStatus && (
+              <div className="text-xs space-y-1 pt-1 border-t">
+                <div className="flex items-center gap-2">
+                  {syncStatus.running && (
+                    <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  )}
+                  <span className={syncStatus.running ? 'text-blue-700' : 'text-gray-600'}>
+                    {syncStatus.message}
+                  </span>
+                </div>
+                {(syncStatus.fetched > 0 || syncStatus.skipped > 0) && (
+                  <p className="text-gray-500">
+                    {syncStatus.fetched} new &middot; {syncStatus.skipped} already stored
+                  </p>
+                )}
+                {syncStatus.errors.length > 0 && (
+                  <p className="text-amber-600">{syncStatus.errors.length} error(s)</p>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Current tracked list */}
           <div>

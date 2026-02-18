@@ -1,4 +1,4 @@
-import type { Company, TimelineResponse, Filing, PriceResponse, TickerSearchResult } from './types'
+import type { Company, TimelineResponse, Filing, PriceResponse, TickerSearchResult, SyncStatus } from './types'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '') + '/api'
 
@@ -89,6 +89,15 @@ export async function logInterest(ticker: string, name: string): Promise<void> {
   return fetchJson(`/companies/interest?ticker=${encodeURIComponent(ticker)}&name=${encodeURIComponent(name)}`, {
     method: 'POST',
   })
+}
+
+// Sync
+export async function startSync(): Promise<{ message: string }> {
+  return fetchJson('/filings/sync', { method: 'POST' })
+}
+
+export async function getSyncStatus(): Promise<SyncStatus> {
+  return fetchJson('/filings/sync-status')
 }
 
 // Ticker search

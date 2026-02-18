@@ -56,3 +56,14 @@ export interface TickerSearchResult {
   cik: string
   name: string
 }
+
+export interface SyncStatus {
+  running: boolean
+  fetched: number
+  skipped: number
+  errors: string[]
+  current: string | null
+  message: string
+  started_at: string | null
+  completed_at: string | null
+}
