@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTimeline, useCompanies, usePrices, useTickerSearch } from './hooks'
 import { Timeline, Loading, ErrorMessage, StockChart, AdminPanel } from './components'
-import { logInterest, fetchFilings } from './api'
+import { logInterest, fetchFilings, verifyAdmin } from './api'
 import type { TimelineEvent, TickerSearchResult } from './api/types'
 
 type ViewMode = 'timeline' | 'chart'
@@ -76,9 +76,10 @@ function App() {
     }
   }, [companies, activeTicker])
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (adminPassword.trim() === (import.meta.env.VITE_ADMIN_PASSWORD ?? '').trim()) {
+    const ok = await verifyAdmin(adminPassword)
+    if (ok) {
       setAdminUnlocked(true)
       setShowAdminLogin(false)
       setAdminPassword('')

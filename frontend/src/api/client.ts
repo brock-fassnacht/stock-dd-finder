@@ -76,6 +76,15 @@ export async function fetchFilings(params?: {
   return fetchJson(`/filings/fetch${query ? `?${query}` : ''}`, { method: 'POST' })
 }
 
+export async function verifyAdmin(key: string): Promise<boolean> {
+  try {
+    await fetchJson(`/companies/admin/verify?key=${encodeURIComponent(key)}`, { method: 'POST' })
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function logInterest(ticker: string, name: string): Promise<void> {
   return fetchJson(`/companies/interest?ticker=${encodeURIComponent(ticker)}&name=${encodeURIComponent(name)}`, {
     method: 'POST',

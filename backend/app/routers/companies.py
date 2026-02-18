@@ -5,6 +5,7 @@ from ..database import get_db
 from ..models import Company, InterestLog
 from ..schemas import CompanyCreate, CompanyResponse
 from ..services import TickerLookup
+from ..config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,15 @@ async def add_company(data: CompanyCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(company)
     return company
+
+
+@router.post("/admin/verify")
+def verify_admin(key: str = Query(...)):
+    """Verify admin key. Returns 200 if correct, 401 if not."""
+    settings = get_settings()
+    if not settings.admin_key or key.strip() != settings.admin_key.strip():
+        raise HTTPException(status_code=401, detail="Invalid key")
+    return {"ok": True}
 
 
 @router.post("/interest")
