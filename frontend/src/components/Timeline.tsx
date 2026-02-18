@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { TimelineEvent } from '../api/types'
 
 interface TimelineProps {
@@ -7,7 +7,20 @@ interface TimelineProps {
 }
 
 
-const CARDS_PER_ROW = 5
+const CARDS_PER_ROW_MOBILE = 2
+const CARDS_PER_ROW_DESKTOP = 5
+
+function useCardsPerRow() {
+  const [cardsPerRow, setCardsPerRow] = useState(
+    window.innerWidth >= 640 ? CARDS_PER_ROW_DESKTOP : CARDS_PER_ROW_MOBILE
+  )
+  useEffect(() => {
+    const onResize = () => setCardsPerRow(window.innerWidth >= 640 ? CARDS_PER_ROW_DESKTOP : CARDS_PER_ROW_MOBILE)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  return cardsPerRow
+}
 
 function getFormTypeColor(formType: string): string {
   if (formType.includes('10-K')) return '#3b82f6'
@@ -18,6 +31,9 @@ function getFormTypeColor(formType: string): string {
 }
 
 export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps) {
+  const CARDS_PER_ROW = useCardsPerRow()
+  const isMobile = CARDS_PER_ROW === CARDS_PER_ROW_MOBILE
+
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) =>
       new Date(b.filed_date).getTime() - new Date(a.filed_date).getTime()
@@ -29,12 +45,12 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
     const result: TimelineEvent[][] = []
     for (let i = 0; i < sortedEvents.length; i += CARDS_PER_ROW) {
       const row = sortedEvents.slice(i, i + CARDS_PER_ROW)
-      // Reverse every other row for snake pattern
+      // Reverse every other row for snake pattern (desktop only)
       const rowIndex = Math.floor(i / CARDS_PER_ROW)
-      result.push(rowIndex % 2 === 1 ? [...row].reverse() : row)
+      result.push(!isMobile && rowIndex % 2 === 1 ? [...row].reverse() : row)
     }
     return result
-  }, [sortedEvents])
+  }, [sortedEvents, CARDS_PER_ROW, isMobile])
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
@@ -127,20 +143,22 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
       `}</style>
 
       {rows.map((row, rowIndex) => {
-        const isReversed = rowIndex % 2 === 1
+        const isReversed = !isMobile && rowIndex % 2 === 1
         const isLastRow = rowIndex === rows.length - 1
         const rowHasFullCards = row.length === CARDS_PER_ROW
 
         return (
           <div key={rowIndex} className="timeline-row relative">
-            {/* Horizontal snake line behind cards */}
-            <div
-              className={`absolute top-1/2 -translate-y-1/2 h-2 rounded-full snake-line-h ${isReversed ? 'snake-line-h-left' : 'snake-line-h-right'}`}
-              style={{
-                left: isReversed ? (rowHasFullCards ? '12px' : `${((CARDS_PER_ROW - row.length) / CARDS_PER_ROW) * 100}%`) : '12px',
-                right: isReversed ? '12px' : (rowHasFullCards ? '12px' : `${((CARDS_PER_ROW - row.length) / CARDS_PER_ROW) * 100}%`),
-              }}
-            />
+            {/* Horizontal snake line behind cards (hidden on mobile) */}
+            {!isMobile && (
+              <div
+                className={`absolute top-1/2 -translate-y-1/2 h-2 rounded-full snake-line-h ${isReversed ? 'snake-line-h-left' : 'snake-line-h-right'}`}
+                style={{
+                  left: isReversed ? (rowHasFullCards ? '12px' : `${((CARDS_PER_ROW - row.length) / CARDS_PER_ROW) * 100}%`) : '12px',
+                  right: isReversed ? '12px' : (rowHasFullCards ? '12px' : `${((CARDS_PER_ROW - row.length) / CARDS_PER_ROW) * 100}%`),
+                }}
+              />
+            )}
 
             {/* Row of cards */}
             <div
@@ -155,13 +173,13 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
               }
 
               {row.map((event) => (
-                <div key={event.id} className="timeline-card-wrapper" style={{ minHeight: '150px' }}>
+                <div key={event.id} className="timeline-card-wrapper" style={{ minHeight: isMobile ? '120px' : '150px' }}>
                   <a
                     href={event.document_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="timeline-card p-3 rounded-lg shadow-lg cursor-pointer border-l-4 border-white flex flex-col no-underline"
-                    style={{ backgroundColor: 'rgb(31, 41, 55)', minHeight: '150px' }}
+                    style={{ backgroundColor: 'rgb(31, 41, 55)', minHeight: isMobile ? '120px' : '150px' }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(75, 85, 99)'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(31, 41, 55)'}
                   >
@@ -192,8 +210,8 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
               ))}
             </div>
 
-            {/* Vertical connector to next row */}
-            {!isLastRow && (
+            {/* Vertical connector to next row (hidden on mobile) */}
+            {!isLastRow && !isMobile && (
               <div
                 className="relative"
                 style={{ height: '28px' }}
@@ -209,6 +227,8 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
                 />
               </div>
             )}
+            {/* Simple gap between rows on mobile */}
+            {!isLastRow && isMobile && <div style={{ height: '8px' }} />}
           </div>
         )
       })}

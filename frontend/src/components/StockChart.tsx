@@ -292,9 +292,9 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
 
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h2 className="text-xl font-bold text-white">{ticker} Price Chart</h2>
-        <div className="flex items-center gap-4 text-sm flex-wrap">
+        <div className="flex items-center gap-x-4 gap-y-1 text-sm flex-wrap">
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-blue-500"></span>
             <span className="text-gray-400">10-K / 10-Q</span>

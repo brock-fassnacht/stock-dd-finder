@@ -106,10 +106,10 @@ function App() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="bg-white shadow-sm border-b px-4 py-3 relative z-20">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-xl font-bold text-gray-900">SEC Filings Timeline</h1>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             {/* View toggle */}
             <div className="flex rounded-lg overflow-hidden border">
               <button
@@ -135,7 +135,7 @@ function App() {
             </div>
 
             {/* Ticker search */}
-            <div className="relative" ref={searchRef}>
+            <div className="relative flex-1 sm:flex-none" ref={searchRef}>
               <input
                 type="text"
                 value={searchQuery}
@@ -145,7 +145,7 @@ function App() {
                 }}
                 onFocus={() => { if (searchQuery) setShowSearchResults(true) }}
                 placeholder="Search ticker..."
-                className="px-3 py-1.5 border rounded text-sm w-48"
+                className="px-3 py-1.5 border rounded text-sm w-full sm:w-48"
               />
               {unsupportedMsg && (
                 <div className="absolute top-full left-0 mt-1 bg-amber-50 border border-amber-300 text-amber-800 text-xs rounded px-3 py-2 z-50 w-72 shadow">
@@ -194,7 +194,7 @@ function App() {
               }}
             >
               <button
-                className="px-3 py-1.5 border rounded text-sm flex items-center justify-between bg-white w-[200px]"
+                className="px-3 py-1.5 border rounded text-sm flex items-center justify-between bg-white w-full sm:w-[200px]"
               >
                 <span>Form Types</span>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
