@@ -124,7 +124,7 @@ function App() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b px-4 py-3 relative z-20">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">Stock DD Finder</h1>
+          <h1 className="text-xl font-bold text-gray-900">SEC Filings Timeline</h1>
 
           <div className="flex items-center gap-4">
             {/* View toggle */}
