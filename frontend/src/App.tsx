@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTimeline, useCompanies, usePrices, useTickerSearch } from './hooks'
-import { Timeline, Loading, ErrorMessage, StockChart } from './components'
+import { Timeline, Loading, ErrorMessage, StockChart, AdminPanel } from './components'
 import { logInterest, fetchFilings } from './api'
 import type { TimelineEvent, TickerSearchResult } from './api/types'
 
@@ -31,6 +31,10 @@ function App() {
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
   const [unsupportedMsg, setUnsupportedMsg] = useState<string | null>(null)
   const unsupportedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [showAdminLogin, setShowAdminLogin] = useState(false)
+  const [adminUnlocked, setAdminUnlocked] = useState(false)
+  const [adminPassword, setAdminPassword] = useState('')
+  const [adminError, setAdminError] = useState(false)
   const [showFormTypesDropdown, setShowFormTypesDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLDivElement>(null)
@@ -71,6 +75,18 @@ function App() {
       setActiveTicker(companies[0].ticker)
     }
   }, [companies, activeTicker])
+
+  const handleAdminLogin = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (adminPassword === import.meta.env.VITE_ADMIN_PASSWORD) {
+      setAdminUnlocked(true)
+      setShowAdminLogin(false)
+      setAdminPassword('')
+      setAdminError(false)
+    } else {
+      setAdminError(true)
+    }
+  }
 
   const handleSelectTicker = async (result: TickerSearchResult) => {
     setSearchQuery('')
@@ -371,9 +387,51 @@ function App() {
       )}
 
       {/* Footer */}
-      <footer className="bg-white border-t px-4 py-2 text-center text-sm text-gray-500">
-        {timeline?.total || 0} filings loaded
+      <footer className="bg-white border-t px-4 py-2 flex items-center justify-between text-sm text-gray-500">
+        <span>{timeline?.total || 0} filings loaded</span>
+        <button
+          onClick={() => setShowAdminLogin(true)}
+          className="text-xs text-gray-300 hover:text-gray-400"
+        >
+          Admin
+        </button>
       </footer>
+
+      {/* Admin login modal */}
+      {showAdminLogin && !adminUnlocked && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={() => { setShowAdminLogin(false); setAdminPassword(''); setAdminError(false) }}
+        >
+          <form
+            className="bg-white rounded-lg shadow-xl p-6 w-full max-w-xs space-y-4"
+            onClick={e => e.stopPropagation()}
+            onSubmit={handleAdminLogin}
+          >
+            <h2 className="text-base font-semibold text-gray-900">Admin Access</h2>
+            <input
+              type="password"
+              value={adminPassword}
+              onChange={e => { setAdminPassword(e.target.value); setAdminError(false) }}
+              placeholder="Password"
+              className={`w-full px-3 py-2 border rounded text-sm ${adminError ? 'border-red-400' : ''}`}
+              autoFocus
+            />
+            {adminError && <p className="text-xs text-red-500">Incorrect password</p>}
+            <button
+              type="submit"
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700"
+            >
+              Unlock
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Admin panel */}
+      {adminUnlocked && (
+        <AdminPanel onClose={() => setAdminUnlocked(false)} />
+      )}
     </div>
   )
 }
