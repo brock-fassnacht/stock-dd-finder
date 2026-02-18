@@ -36,12 +36,9 @@ function App() {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdowns when clicking outside
+  // Close search results when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowFormTypesDropdown(false)
-      }
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowSearchResults(false)
       }
@@ -184,10 +181,14 @@ function App() {
             )}
 
             {/* Form types multi-select */}
-            <div className="relative" ref={dropdownRef}>
+            <div
+              className="relative"
+              ref={dropdownRef}
+              onMouseEnter={() => setShowFormTypesDropdown(true)}
+              onMouseLeave={() => setShowFormTypesDropdown(false)}
+            >
               <button
-                onClick={() => setShowFormTypesDropdown(!showFormTypesDropdown)}
-                className={`px-3 py-1.5 border rounded text-sm flex items-center gap-2 bg-white transition-opacity duration-200 ${showFormTypesDropdown ? 'opacity-100' : 'opacity-0 hover:opacity-100'}`}
+                className="px-3 py-1.5 border rounded text-sm flex items-center gap-2 bg-white"
               >
                 <span>Form Types</span>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
