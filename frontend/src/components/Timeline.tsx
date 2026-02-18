@@ -160,7 +160,7 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
               }
 
               {row.map((event) => (
-                <div key={event.id} className="timeline-card-wrapper" style={{ minHeight: '100px' }}>
+                <div key={event.id} className="timeline-card-wrapper" style={{ height: '150px' }}>
                   <a
                     href={event.document_url}
                     target="_blank"
@@ -170,7 +170,7 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
                       border-l-4 ${TICKER_BORDER[event.ticker] || 'border-gray-600'}
                       flex flex-col no-underline
                     `}
-                    style={{ backgroundColor: 'rgb(31, 41, 55)', minHeight: '100px' }}
+                    style={{ backgroundColor: 'rgb(31, 41, 55)', height: '100%' }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(75, 85, 99)'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(31, 41, 55)'}
                   >
