@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     # Admin
     admin_key: str = ""
 
+    # Groq model (override via GROQ_MODEL env var)
+    groq_model: str = "llama-3.1-8b-instant"
+
     # CORS
     allowed_origins: str = "http://localhost:5173,http://localhost:3000"
 
