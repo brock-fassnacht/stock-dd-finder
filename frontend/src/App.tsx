@@ -198,19 +198,6 @@ function App() {
               </span>
             )}
 
-            {/* Tracked tickers quick-switch */}
-            {companies && companies.length > 1 && (
-              <select
-                value={activeTicker || ''}
-                onChange={e => setActiveTicker(e.target.value || undefined)}
-                className="px-3 py-1.5 border rounded text-sm"
-              >
-                {companies.map(c => (
-                  <option key={c.ticker} value={c.ticker}>{c.ticker}</option>
-                ))}
-              </select>
-            )}
-
             {/* Form types multi-select */}
             <div className="relative" ref={dropdownRef}>
               <button
