@@ -77,21 +77,34 @@ async def _run_sync():
                     # Skip Groq summarization for Form 4 — high volume, low value
                     headline = None
                     if ef.form_type != "4":
-                        try:
-                            _sync_state["message"] = (
-                                f"{company.ticker}: summarizing {ef.form_type} "
-                                f"filed {ef.filed_date}..."
-                            )
-                            text = await summarizer.fetch_filing_text(ef.document_url)
-                            headline = summarizer.generate_headline(
-                                ef.form_type, company.name, text
-                            )
-                            # Groq free tier: 30 req/min — sleep 2s between calls
-                            await asyncio.sleep(2)
-                        except Exception as e:
-                            _sync_state["errors"].append(
-                                f"{company.ticker} {ef.form_type}: {str(e)}"
-                            )
+                        for attempt in range(3):
+                            try:
+                                _sync_state["message"] = (
+                                    f"{company.ticker}: summarizing {ef.form_type} "
+                                    f"filed {ef.filed_date}..."
+                                )
+                                # 5,000 chars ≈ 1,250 tokens — enough for a good
+                                # summary while staying under Groq's 6,000 TPM limit
+                                text = await summarizer.fetch_filing_text(
+                                    ef.document_url, max_chars=5000
+                                )
+                                headline = summarizer.generate_headline(
+                                    ef.form_type, company.name, text
+                                )
+                                # ~2,700 tokens/call × 2.7 calls/min ≈ 7,300 TPM
+                                await asyncio.sleep(22)
+                                break
+                            except Exception as e:
+                                if attempt < 2:
+                                    _sync_state["message"] = (
+                                        f"{company.ticker}: rate limited, "
+                                        f"waiting 60s (attempt {attempt + 1}/3)..."
+                                    )
+                                    await asyncio.sleep(60)
+                                else:
+                                    _sync_state["errors"].append(
+                                        f"{company.ticker} {ef.form_type}: {str(e)}"
+                                    )
 
                     db.add(Filing(
                         company_id=company.id,
