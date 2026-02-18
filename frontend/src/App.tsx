@@ -78,7 +78,7 @@ function App() {
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    if (adminPassword === import.meta.env.VITE_ADMIN_PASSWORD) {
+    if (adminPassword.trim() === (import.meta.env.VITE_ADMIN_PASSWORD ?? '').trim()) {
       setAdminUnlocked(true)
       setShowAdminLogin(false)
       setAdminPassword('')
