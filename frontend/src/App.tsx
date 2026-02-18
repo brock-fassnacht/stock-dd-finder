@@ -194,7 +194,7 @@ function App() {
               }}
             >
               <button
-                className="px-3 py-1.5 border rounded text-sm flex items-center gap-2 bg-white"
+                className="px-3 py-1.5 border rounded text-sm flex items-center justify-between bg-white w-[200px]"
               >
                 <span>Form Types</span>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
