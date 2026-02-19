@@ -1,6 +1,22 @@
 import type { Company, TimelineResponse, Filing, PriceResponse, TickerSearchResult, SyncStatus } from './types'
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '') + '/api'
+function getApiBase(): string {
+  // Explicit env var takes priority
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL + '/api'
+  }
+  // Auto-detect based on hostname
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname
+    if (host === 'tickerclaw.com' || host === 'www.tickerclaw.com') {
+      return 'https://api.tickerclaw.com/api'
+    }
+  }
+  // Fallback: production Railway URL (for Vercel previews)
+  return 'https://stock-dd-finder-production.up.railway.app/api'
+}
+
+const API_BASE = getApiBase()
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${url}`, {
