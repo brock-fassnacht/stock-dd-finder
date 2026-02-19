@@ -36,6 +36,7 @@ function App() {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const dropdownHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchRef = useRef<HTMLDivElement>(null)
+  const searchHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Close search results when clicking outside
   useEffect(() => {
@@ -135,7 +136,16 @@ function App() {
             </div>
 
             {/* Ticker search */}
-            <div className="relative flex-1 sm:flex-none" ref={searchRef}>
+            <div
+              className="relative flex-1 sm:flex-none"
+              ref={searchRef}
+              onMouseEnter={() => {
+                if (searchHideTimer.current) clearTimeout(searchHideTimer.current)
+              }}
+              onMouseLeave={() => {
+                setShowSearchResults(false)
+              }}
+            >
               <input
                 type="text"
                 value={searchQuery}
@@ -190,7 +200,7 @@ function App() {
                 setShowFormTypesDropdown(true)
               }}
               onMouseLeave={() => {
-                dropdownHideTimer.current = setTimeout(() => setShowFormTypesDropdown(false), 150)
+                setShowFormTypesDropdown(false)
               }}
             >
               <button
