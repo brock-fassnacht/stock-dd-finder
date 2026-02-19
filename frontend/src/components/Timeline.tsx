@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
+import { useIsMobile } from '../hooks'
 import type { TimelineEvent } from '../api/types'
 
 interface TimelineProps {
@@ -6,21 +7,8 @@ interface TimelineProps {
   onEventClick?: (event: TimelineEvent) => void
 }
 
-
 const CARDS_PER_ROW_MOBILE = 2
 const CARDS_PER_ROW_DESKTOP = 5
-
-function useCardsPerRow() {
-  const [cardsPerRow, setCardsPerRow] = useState(
-    window.innerWidth >= 640 ? CARDS_PER_ROW_DESKTOP : CARDS_PER_ROW_MOBILE
-  )
-  useEffect(() => {
-    const onResize = () => setCardsPerRow(window.innerWidth >= 640 ? CARDS_PER_ROW_DESKTOP : CARDS_PER_ROW_MOBILE)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
-  return cardsPerRow
-}
 
 function getFormTypeColor(formType: string): string {
   if (formType.includes('10-K')) return '#3b82f6'
@@ -30,9 +18,9 @@ function getFormTypeColor(formType: string): string {
   return '#22c55e'
 }
 
-export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps) {
-  const CARDS_PER_ROW = useCardsPerRow()
-  const isMobile = CARDS_PER_ROW === CARDS_PER_ROW_MOBILE
+export function Timeline({ events, onEventClick }: TimelineProps) {
+  const isMobile = useIsMobile()
+  const CARDS_PER_ROW = isMobile ? CARDS_PER_ROW_MOBILE : CARDS_PER_ROW_DESKTOP
 
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) =>
@@ -106,15 +94,9 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
           box-shadow: 0 0 20px rgba(6, 182, 212, 0.6), 0 0 40px rgba(168, 85, 247, 0.4);
           animation: flowDown 1.5s linear infinite, pulse 2s ease-in-out infinite;
         }
-        .timeline-row:has(.timeline-card-wrapper:hover) {
-          z-index: 100;
-        }
         .timeline-card-wrapper {
           position: relative;
           z-index: 1;
-        }
-        .timeline-card-wrapper:hover {
-          z-index: 100;
         }
         .timeline-card {
           transition: background-color 0.2s ease-out, box-shadow 0.2s ease-out;
@@ -125,20 +107,28 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
           -webkit-box-orient: vertical;
           overflow: hidden;
         }
-        .timeline-card-wrapper:hover .timeline-card {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          z-index: 50;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-        }
-        .timeline-card-wrapper:hover .timeline-card .card-content {
-          display: block;
-          -webkit-line-clamp: unset;
-          overflow: visible;
-          max-height: 300px;
-          overflow-y: auto;
+        @media (hover: hover) {
+          .timeline-row:has(.timeline-card-wrapper:hover) {
+            z-index: 100;
+          }
+          .timeline-card-wrapper:hover {
+            z-index: 100;
+          }
+          .timeline-card-wrapper:hover .timeline-card {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+          }
+          .timeline-card-wrapper:hover .timeline-card .card-content {
+            display: block;
+            -webkit-line-clamp: unset;
+            overflow: visible;
+            max-height: 300px;
+            overflow-y: auto;
+          }
         }
       `}</style>
 
@@ -172,17 +162,9 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
                 ))
               }
 
-              {row.map((event) => (
-                <div key={event.id} className="timeline-card-wrapper" style={{ minHeight: isMobile ? '120px' : '150px' }}>
-                  <a
-                    href={event.document_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="timeline-card p-3 rounded-lg shadow-lg cursor-pointer border-l-4 border-white flex flex-col no-underline"
-                    style={{ backgroundColor: 'rgb(31, 41, 55)', minHeight: isMobile ? '120px' : '150px' }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(75, 85, 99)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(31, 41, 55)'}
-                  >
+              {row.map((event) => {
+                const cardContent = (
+                  <>
                     {/* Header */}
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-bold text-white">
@@ -205,9 +187,35 @@ export function Timeline({ events, onEventClick: _onEventClick }: TimelineProps)
                     <p className="card-content text-sm text-gray-300 leading-snug">
                       {event.headline || event.form_type_description || 'No summary'}
                     </p>
-                  </a>
-                </div>
-              ))}
+                  </>
+                )
+
+                return (
+                  <div key={event.id} className="timeline-card-wrapper" style={{ minHeight: isMobile ? '120px' : '150px' }}>
+                    {isMobile ? (
+                      <div
+                        className="timeline-card p-3 rounded-lg shadow-lg cursor-pointer border-l-4 border-white flex flex-col"
+                        style={{ backgroundColor: 'rgb(31, 41, 55)', minHeight: '120px' }}
+                        onClick={() => onEventClick?.(event)}
+                      >
+                        {cardContent}
+                      </div>
+                    ) : (
+                      <a
+                        href={event.document_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="timeline-card p-3 rounded-lg shadow-lg cursor-pointer border-l-4 border-white flex flex-col no-underline"
+                        style={{ backgroundColor: 'rgb(31, 41, 55)', minHeight: '150px' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(75, 85, 99)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(31, 41, 55)'}
+                      >
+                        {cardContent}
+                      </a>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
             {/* Vertical connector to next row (hidden on mobile) */}

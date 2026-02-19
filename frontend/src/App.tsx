@@ -107,14 +107,14 @@ function App() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b px-4 py-3 relative z-20">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-bold text-gray-900">SEC Filings Timeline</h1>
+          <h1 className="text-base sm:text-xl font-bold text-gray-900">SEC Filings Timeline</h1>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             {/* View toggle */}
             <div className="flex rounded-lg overflow-hidden border">
               <button
                 onClick={() => setViewMode('timeline')}
-                className={`px-3 py-1.5 text-sm font-medium ${
+                className={`px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm font-medium ${
                   viewMode === 'timeline'
                     ? 'bg-blue-600 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -124,7 +124,7 @@ function App() {
               </button>
               <button
                 onClick={() => setViewMode('chart')}
-                className={`px-3 py-1.5 text-sm font-medium ${
+                className={`px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm font-medium ${
                   viewMode === 'chart'
                     ? 'bg-blue-600 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -145,7 +145,7 @@ function App() {
                 }}
                 onFocus={() => { if (searchQuery) setShowSearchResults(true) }}
                 placeholder="Search ticker..."
-                className="px-3 py-1.5 border rounded text-sm w-full sm:w-48"
+                className="px-2 py-1 sm:px-3 sm:py-1.5 border rounded text-xs sm:text-sm w-full sm:w-48"
               />
               {unsupportedMsg && (
                 <div className="absolute top-full left-0 mt-1 bg-amber-50 border border-amber-300 text-amber-800 text-xs rounded px-3 py-2 z-50 w-72 shadow">
@@ -194,9 +194,10 @@ function App() {
               }}
             >
               <button
-                className="px-3 py-1.5 border rounded text-sm flex items-center justify-between bg-white w-full sm:w-[200px]"
+                className="px-2 py-1 sm:px-3 sm:py-1.5 border rounded text-xs sm:text-sm flex items-center justify-between bg-white w-full sm:w-[200px]"
               >
-                <span>Form Types</span>
+                <span className="sm:hidden">Forms</span>
+                <span className="hidden sm:inline">Form Types</span>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>

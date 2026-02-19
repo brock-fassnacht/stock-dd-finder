@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { createChart, ColorType, CrosshairMode } from 'lightweight-charts'
 import type { CandlestickData, Time } from 'lightweight-charts'
+import { useIsMobile } from '../hooks'
 import type { Candle, TimelineEvent } from '../api/types'
 
 interface StockChartProps {
@@ -18,6 +19,7 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
   const pinnedTooltipRef = useRef<HTMLDivElement>(null)
   const dotsContainerRef = useRef<HTMLDivElement>(null)
   const chartCreated = useRef(false)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     if (chartCreated.current) return
@@ -39,7 +41,7 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
         horzLines: { color: '#2d2d44' },
       },
       width: container.clientWidth,
-      height: window.innerHeight - 180,
+      height: window.innerHeight - (isMobile ? 220 : 180),
       crosshair: {
         mode: CrosshairMode.Normal,
       },
@@ -112,7 +114,8 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
     const dotElements: { el: HTMLDivElement; date: string; high: number }[] = []
     for (const info of markerInfos) {
       const dot = document.createElement('div')
-      dot.style.cssText = `position:absolute;width:12px;height:12px;border-radius:50%;background:${info.color};pointer-events:none;display:none;transform:translate(-50%,-50%);box-shadow:0 0 6px ${info.color};z-index:6;`
+      const dotSize = isMobile ? 18 : 12
+      dot.style.cssText = `position:absolute;width:${dotSize}px;height:${dotSize}px;border-radius:50%;background:${info.color};pointer-events:none;display:none;transform:translate(-50%,-50%);box-shadow:0 0 6px ${info.color};z-index:6;`
       dotsContainer.appendChild(dot)
       dotElements.push({ el: dot, date: info.date, high: info.high })
     }
@@ -141,32 +144,48 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
       pinnedTooltip.style.overflowY = ''
       pinnedTooltip.style.display = 'block'
 
-      // Measure actual tooltip height, then center vertically on click point
-      const tooltipWidth = 320
-      const naturalHeight = pinnedTooltip.offsetHeight
-      const containerHeight = container.clientHeight
-      let left = clickX + 16
-      let top = clickY - (naturalHeight / 2)
-
-      if (left + tooltipWidth > container.clientWidth) {
-        left = clickX - tooltipWidth - 16
-      }
-      // Clamp within chart bounds
-      if (top < 0) top = 0
-      if (top + naturalHeight > containerHeight) {
-        top = containerHeight - naturalHeight
-        if (top < 0) top = 0
-      }
-
-      // If tooltip is taller than available space, cap it with scroll
-      const availableHeight = containerHeight - top - 12
-      if (naturalHeight > availableHeight) {
-        pinnedTooltip.style.maxHeight = availableHeight + 'px'
+      if (isMobile) {
+        // Full-width pinned tooltip at bottom of chart
+        pinnedTooltip.style.left = '0'
+        pinnedTooltip.style.right = '0'
+        pinnedTooltip.style.bottom = '0'
+        pinnedTooltip.style.top = ''
+        pinnedTooltip.style.maxWidth = 'none'
+        pinnedTooltip.style.maxHeight = Math.floor(container.clientHeight * 0.4) + 'px'
         pinnedTooltip.style.overflowY = 'auto'
-      }
+        pinnedTooltip.style.borderRadius = '8px 8px 0 0'
+      } else {
+        // Desktop: floating beside click point
+        pinnedTooltip.style.right = ''
+        pinnedTooltip.style.bottom = ''
+        pinnedTooltip.style.maxWidth = ''
+        pinnedTooltip.style.borderRadius = '8px'
+        const tooltipWidth = 320
+        const naturalHeight = pinnedTooltip.offsetHeight
+        const containerHeight = container.clientHeight
+        let left = clickX + 16
+        let top = clickY - (naturalHeight / 2)
 
-      pinnedTooltip.style.left = left + 'px'
-      pinnedTooltip.style.top = top + 'px'
+        if (left + tooltipWidth > container.clientWidth) {
+          left = clickX - tooltipWidth - 16
+        }
+        // Clamp within chart bounds
+        if (top < 0) top = 0
+        if (top + naturalHeight > containerHeight) {
+          top = containerHeight - naturalHeight
+          if (top < 0) top = 0
+        }
+
+        // If tooltip is taller than available space, cap it with scroll
+        const availableHeight = containerHeight - top - 12
+        if (naturalHeight > availableHeight) {
+          pinnedTooltip.style.maxHeight = availableHeight + 'px'
+          pinnedTooltip.style.overflowY = 'auto'
+        }
+
+        pinnedTooltip.style.left = left + 'px'
+        pinnedTooltip.style.top = top + 'px'
+      }
 
       // Attach close handler
       const closeBtn = pinnedTooltip.querySelector('#pinned-close')
@@ -218,8 +237,8 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
     chart.timeScale().subscribeVisibleLogicalRangeChange(updateDotPositions)
     requestAnimationFrame(updateDotPositions)
 
-    // Tooltip on crosshair move
-    chart.subscribeCrosshairMove(param => {
+    // Tooltip on crosshair move (desktop only — useless on touch)
+    if (!isMobile) chart.subscribeCrosshairMove(param => {
       // Hide hover tooltip if a pinned tooltip is showing
       if (pinnedDate) {
         tooltip.style.display = 'none'
@@ -274,7 +293,7 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
     const handleResize = () => {
       chart.applyOptions({
         width: container.clientWidth,
-        height: window.innerHeight - 180,
+        height: window.innerHeight - (window.innerWidth < 640 ? 220 : 180),
       })
       requestAnimationFrame(updateDotPositions)
     }
@@ -334,7 +353,7 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
             display: 'none',
             position: 'absolute',
             zIndex: 10,
-            maxWidth: 320,
+            maxWidth: Math.min(320, (typeof window !== 'undefined' ? window.innerWidth : 320) - 24),
             padding: '10px 12px',
             backgroundColor: 'rgba(22, 22, 40, 0.97)',
             border: '1px solid #4b5563',
