@@ -494,6 +494,7 @@ Return a JSON array of executive compensation entries. Each entry should have:
 
 If a field is not available, use null.
 Only include the top 5 highest-compensated executives.
+Only include data from the MOST RECENT fiscal year in the table.
 Return ONLY valid JSON array, no other text.
 
 Filing content:

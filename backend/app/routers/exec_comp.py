@@ -2,7 +2,7 @@ import asyncio
 import logging
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func as sqlfunc
 from typing import Optional
 
 from ..database import get_db
@@ -20,8 +20,22 @@ def get_executive_compensation(
     ticker: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    """Get executive compensation data for tracked companies."""
-    query = db.query(ExecutiveCompensation).join(Company)
+    """Get executive compensation data for tracked companies (most recent year only)."""
+    # Find the max fiscal_year per company
+    max_year_subq = db.query(
+        ExecutiveCompensation.company_id,
+        sqlfunc.max(ExecutiveCompensation.fiscal_year).label("max_year"),
+    ).group_by(ExecutiveCompensation.company_id).subquery()
+
+    query = (
+        db.query(ExecutiveCompensation)
+        .join(Company)
+        .join(
+            max_year_subq,
+            (ExecutiveCompensation.company_id == max_year_subq.c.company_id)
+            & (ExecutiveCompensation.fiscal_year == max_year_subq.c.max_year),
+        )
+    )
 
     if ticker:
         query = query.filter(Company.ticker == ticker.upper())
