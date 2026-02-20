@@ -181,17 +181,25 @@ async def _run_sync():
                         if not edgar_filings:
                             continue
                         ef = edgar_filings[0]
-                        filing = Filing(
-                            company_id=company.id,
-                            accession_number=ef.accession_number,
-                            form_type=ef.form_type,
-                            filed_date=ef.filed_date,
-                            document_url=ef.document_url,
-                        )
-                        db.add(filing)
-                        db.commit()
-                        db.refresh(filing)
+                        existing_filing = db.query(Filing).filter(
+                            Filing.accession_number == ef.accession_number
+                        ).first()
+                        if existing_filing:
+                            filing = existing_filing
+                        else:
+                            filing = Filing(
+                                company_id=company.id,
+                                accession_number=ef.accession_number,
+                                form_type=ef.form_type,
+                                filed_date=ef.filed_date,
+                                document_url=ef.document_url,
+                            )
+                            db.add(filing)
+                            db.commit()
+                            db.refresh(filing)
+                        await asyncio.sleep(0.5)
                     except Exception as e:
+                        db.rollback()
                         logger.error(f"Exec comp: failed to fetch DEF 14A for {company.ticker}: {e}")
                         continue
 
@@ -218,6 +226,7 @@ async def _run_sync():
                     exec_extracted += len(comp_data)
                     await asyncio.sleep(5)
                 except Exception as e:
+                    db.rollback()
                     logger.error(f"Exec comp extraction failed for {company.ticker}: {e}")
 
             if exec_extracted:

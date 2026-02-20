@@ -131,17 +131,25 @@ async def _sync_exec_comp(db, companies):
                 if not edgar_filings:
                     continue
                 ef = edgar_filings[0]
-                filing = Filing(
-                    company_id=company.id,
-                    accession_number=ef.accession_number,
-                    form_type=ef.form_type,
-                    filed_date=ef.filed_date,
-                    document_url=ef.document_url,
-                )
-                db.add(filing)
-                db.commit()
-                db.refresh(filing)
+                existing_filing = db.query(Filing).filter(
+                    Filing.accession_number == ef.accession_number
+                ).first()
+                if existing_filing:
+                    filing = existing_filing
+                else:
+                    filing = Filing(
+                        company_id=company.id,
+                        accession_number=ef.accession_number,
+                        form_type=ef.form_type,
+                        filed_date=ef.filed_date,
+                        document_url=ef.document_url,
+                    )
+                    db.add(filing)
+                    db.commit()
+                    db.refresh(filing)
+                await asyncio.sleep(0.5)
             except Exception as e:
+                db.rollback()
                 logger.error(f"Exec comp: failed to fetch DEF 14A for {company.ticker}: {e}")
                 continue
 
@@ -171,6 +179,7 @@ async def _sync_exec_comp(db, companies):
             await asyncio.sleep(5)  # Rate limit Groq
 
         except Exception as e:
+            db.rollback()
             logger.error(f"Exec comp: extraction failed for {company.ticker}: {e}")
 
     if extracted:

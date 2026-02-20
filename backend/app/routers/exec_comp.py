@@ -2,6 +2,7 @@ import asyncio
 import logging
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import Optional
 
 from ..database import get_db
@@ -60,7 +61,6 @@ async def extract_compensation(
 
     If a company has no DEF 14A in the database, fetches directly from EDGAR.
     """
-    # Get companies to process
     company_query = db.query(Company)
     if ticker:
         company_query = company_query.filter(Company.ticker == ticker.upper())
@@ -71,31 +71,41 @@ async def extract_compensation(
     results = {"extracted": 0, "skipped": 0, "errors": []}
 
     for company in companies:
-        # Check if already extracted for this company
-        existing = db.query(ExecutiveCompensation).filter(
-            ExecutiveCompensation.company_id == company.id
-        ).first()
-        if existing:
-            results["skipped"] += 1
-            continue
+        try:
+            # Check if already extracted for this company
+            existing = db.query(ExecutiveCompensation).filter(
+                ExecutiveCompensation.company_id == company.id
+            ).first()
+            if existing:
+                results["skipped"] += 1
+                continue
 
-        # Find DEF 14A in database
-        filing = db.query(Filing).filter(
-            Filing.company_id == company.id,
-            Filing.form_type == "DEF 14A",
-        ).order_by(Filing.filed_date.desc()).first()
+            # Find DEF 14A in database
+            filing = db.query(Filing).filter(
+                Filing.company_id == company.id,
+                Filing.form_type == "DEF 14A",
+            ).order_by(Filing.filed_date.desc()).first()
 
-        # If not in DB, fetch from EDGAR directly
-        if not filing:
-            try:
+            # If not in DB, fetch from EDGAR directly
+            if not filing:
                 logger.info(f"No DEF 14A in DB for {company.ticker}, fetching from EDGAR...")
                 edgar_filings = await edgar.get_company_filings(
                     cik=company.cik,
                     form_types=["DEF 14A"],
                     limit=1,
                 )
-                if edgar_filings:
-                    ef = edgar_filings[0]
+                if not edgar_filings:
+                    logger.info(f"No DEF 14A found on EDGAR for {company.ticker}")
+                    continue
+
+                ef = edgar_filings[0]
+                # Check if this filing already exists (by accession number)
+                existing_filing = db.query(Filing).filter(
+                    Filing.accession_number == ef.accession_number
+                ).first()
+                if existing_filing:
+                    filing = existing_filing
+                else:
                     filing = Filing(
                         company_id=company.id,
                         accession_number=ef.accession_number,
@@ -107,15 +117,9 @@ async def extract_compensation(
                     db.commit()
                     db.refresh(filing)
                     logger.info(f"Fetched DEF 14A for {company.ticker} filed {ef.filed_date}")
-                else:
-                    logger.info(f"No DEF 14A found on EDGAR for {company.ticker}")
-                    continue
-            except Exception as e:
-                results["errors"].append(f"{company.ticker}: Failed to fetch DEF 14A from EDGAR: {e}")
-                logger.error(f"EDGAR fetch failed for {company.ticker}: {e}")
-                continue
 
-        try:
+                await asyncio.sleep(0.5)  # SEC rate limit
+
             logger.info(f"Extracting exec comp for {company.ticker} from filing {filing.id}")
             text = await summarizer.fetch_compensation_section(filing.document_url)
             comp_data = summarizer.extract_executive_compensation(
@@ -146,6 +150,7 @@ async def extract_compensation(
             await asyncio.sleep(5)
 
         except Exception as e:
+            db.rollback()
             results["errors"].append(f"{company.ticker}: {str(e)}")
             logger.error(f"Exec comp extraction failed for {company.ticker}: {e}")
 
