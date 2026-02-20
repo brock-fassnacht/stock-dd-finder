@@ -56,6 +56,19 @@ async def _run_sync():
         summarizer = SummarizerService()
         finnhub = FinnhubService()
         since_date = date.today() - timedelta(days=365)
+
+        # One-time cleanup: remove press releases not from wire services
+        from ..services.finnhub import PRESS_RELEASE_SOURCES
+        junk_prs = db.query(PressRelease).filter(
+            ~PressRelease.source.in_([s for s in PRESS_RELEASE_SOURCES])
+        ).all()
+        if junk_prs:
+            for pr in junk_prs:
+                db.delete(pr)
+            db.commit()
+            logger.info(f"Cleaned up {len(junk_prs)} non-wire-service press releases")
+            _sync_state["message"] = f"Cleaned up {len(junk_prs)} junk press releases..."
+
         logger.info(f"Full sync started for {len(companies)} companies since {since_date}")
 
         for company in companies:
