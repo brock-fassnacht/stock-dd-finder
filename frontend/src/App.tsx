@@ -138,13 +138,13 @@ function App() {
 
             {/* Ticker search */}
             <div
-              className="relative flex-1 sm:flex-none"
+              className="relative flex-1 sm:flex-none pb-1"
               ref={searchRef}
               onMouseEnter={() => {
                 if (searchHideTimer.current) clearTimeout(searchHideTimer.current)
               }}
               onMouseLeave={() => {
-                setShowSearchResults(false)
+                searchHideTimer.current = setTimeout(() => setShowSearchResults(false), 150)
               }}
             >
               <input
@@ -155,16 +155,19 @@ function App() {
                   setShowSearchResults(true)
                 }}
                 onFocus={() => { if (searchQuery) setShowSearchResults(true) }}
+                onBlur={() => {
+                  searchHideTimer.current = setTimeout(() => setShowSearchResults(false), 200)
+                }}
                 placeholder="Search ticker..."
                 className="px-2 py-1 sm:px-3 sm:py-1.5 border rounded text-xs sm:text-sm w-full sm:w-48"
               />
               {unsupportedMsg && (
-                <div className="absolute top-full left-0 mt-1 bg-amber-50 border border-amber-300 text-amber-800 text-xs rounded px-3 py-2 z-50 w-72 shadow">
+                <div className="absolute top-full left-0 bg-amber-50 border border-amber-300 text-amber-800 text-xs rounded px-3 py-2 z-50 w-72 shadow">
                   {unsupportedMsg}
                 </div>
               )}
               {!unsupportedMsg && showSearchResults && searchResults && searchResults.length > 0 && (
-                <div className="absolute top-full left-0 mt-1 bg-white border rounded shadow-lg z-50 w-80 max-h-64 overflow-y-auto">
+                <div className="absolute top-full left-0 bg-white border rounded shadow-lg z-50 w-80 max-h-64 overflow-y-auto">
                   {searchResults.map(r => {
                     const supported = companies?.some(c => c.ticker === r.ticker)
                     return (
