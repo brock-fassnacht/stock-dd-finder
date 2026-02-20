@@ -14,3 +14,4 @@ class Company(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     filings = relationship("Filing", back_populates="company")
+    press_releases = relationship("PressRelease", back_populates="company")

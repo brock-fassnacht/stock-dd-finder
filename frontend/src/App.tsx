@@ -15,6 +15,7 @@ const FORM_TYPES = [
   { value: 'S-1', label: 'S-1 (IPO)' },
   { value: 'SC 13G', label: 'SC 13G (Ownership)' },
   { value: 'SC 13D', label: 'SC 13D (Ownership)' },
+  { value: 'PR', label: 'Press Release' },
 ]
 
 function App() {
@@ -356,7 +357,7 @@ function App() {
               rel="noopener noreferrer"
               className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
-              View Full Filing
+              {selectedEvent.event_type === 'press_release' ? 'View Article' : 'View Full Filing'}
             </a>
           </div>
         </div>

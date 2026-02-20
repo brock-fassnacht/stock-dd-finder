@@ -15,6 +15,7 @@ export interface TimelineEvent {
   filed_date: string
   headline: string | null
   document_url: string
+  event_type: 'filing' | 'press_release'
 }
 
 export interface TimelineResponse {

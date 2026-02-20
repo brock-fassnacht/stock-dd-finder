@@ -6,10 +6,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import Optional, List
 from ..database import get_db, SessionLocal
-from ..models import Company, Filing
+from ..models import Company, Filing, PressRelease
 from ..schemas import FilingResponse, FilingDetail, TimelineResponse
 from ..schemas.filing import TimelineEvent
-from ..services import EdgarService, SummarizerService
+from ..services import EdgarService, SummarizerService, FinnhubService
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,7 @@ async def _run_sync():
 
         edgar = EdgarService()
         summarizer = SummarizerService()
+        finnhub = FinnhubService()
         since_date = date.today() - timedelta(days=365)
         logger.info(f"Full sync started for {len(companies)} companies since {since_date}")
 
@@ -119,6 +120,35 @@ async def _run_sync():
                 db.commit()
                 await asyncio.sleep(0.5)  # SEC rate limit between companies
 
+                # Fetch press releases from Finnhub
+                _sync_state["message"] = f"Fetching news for {company.ticker}..."
+                try:
+                    news_items = await finnhub.get_company_news(
+                        symbol=company.ticker,
+                        from_date=since_date,
+                        to_date=date.today(),
+                    )
+                    for item in news_items:
+                        existing_pr = db.query(PressRelease).filter(
+                            PressRelease.finnhub_id == item.id
+                        ).first()
+                        if existing_pr:
+                            continue
+                        db.add(PressRelease(
+                            company_id=company.id,
+                            finnhub_id=item.id,
+                            headline=item.headline,
+                            source=item.source,
+                            url=item.url,
+                            published_at=datetime.fromtimestamp(item.datetime),
+                        ))
+                    db.commit()
+                except Exception as e:
+                    _sync_state["errors"].append(
+                        f"{company.ticker} news: {str(e)}"
+                    )
+                    logger.error(f"Finnhub error for {company.ticker}: {e}")
+
             except Exception as e:
                 _sync_state["errors"].append(f"{company.ticker}: {str(e)}")
                 logger.error(f"Sync error for {company.ticker}: {e}")
@@ -184,35 +214,71 @@ def get_timeline(
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
-    """Get timeline of filings across all companies."""
-    query = db.query(Filing).join(Company)
+    """Get timeline of filings and press releases across all companies."""
+    events: List[TimelineEvent] = []
 
+    # --- Filings ---
+    exclude_pr = exclude_form_types and "PR" in exclude_form_types
+    filing_excludes = [ft for ft in (exclude_form_types or []) if ft != "PR"]
+
+    filing_query = db.query(Filing).join(Company)
     if ticker:
-        query = query.filter(Company.ticker == ticker.upper())
-    if form_type:
-        query = query.filter(Filing.form_type == form_type)
-    if exclude_form_types:
-        query = query.filter(Filing.form_type.notin_(exclude_form_types))
+        filing_query = filing_query.filter(Company.ticker == ticker.upper())
+    if form_type and form_type != "PR":
+        filing_query = filing_query.filter(Filing.form_type == form_type)
+    if filing_excludes:
+        filing_query = filing_query.filter(Filing.form_type.notin_(filing_excludes))
     if start_date:
-        query = query.filter(Filing.filed_date >= start_date)
+        filing_query = filing_query.filter(Filing.filed_date >= start_date)
     if end_date:
-        query = query.filter(Filing.filed_date <= end_date)
+        filing_query = filing_query.filter(Filing.filed_date <= end_date)
 
-    total = query.count()
-    filings = query.order_by(desc(Filing.filed_date)).limit(limit).all()
+    # If filtering to only PR, skip filings entirely
+    if form_type != "PR":
+        for f in filing_query.all():
+            events.append(TimelineEvent(
+                id=f.id,
+                ticker=f.company.ticker,
+                company_name=f.company.name,
+                form_type=f.form_type,
+                form_type_description=get_form_description(f.form_type),
+                filed_date=f.filed_date,
+                headline=f.headline,
+                document_url=f.document_url,
+                event_type="filing",
+            ))
 
-    events = []
-    for f in filings:
-        events.append(TimelineEvent(
-            id=f.id,
-            ticker=f.company.ticker,
-            company_name=f.company.name,
-            form_type=f.form_type,
-            form_type_description=get_form_description(f.form_type),
-            filed_date=f.filed_date,
-            headline=f.headline,
-            document_url=f.document_url,
-        ))
+    # --- Press Releases ---
+    if not exclude_pr:
+        pr_query = db.query(PressRelease).join(Company)
+        if ticker:
+            pr_query = pr_query.filter(Company.ticker == ticker.upper())
+        if form_type and form_type != "PR":
+            # User is filtering to a specific filing type, skip PRs
+            pass
+        else:
+            if start_date:
+                pr_query = pr_query.filter(PressRelease.published_at >= start_date)
+            if end_date:
+                pr_query = pr_query.filter(PressRelease.published_at <= end_date)
+
+            for pr in pr_query.all():
+                events.append(TimelineEvent(
+                    id=pr.id,
+                    ticker=pr.company.ticker,
+                    company_name=pr.company.name,
+                    form_type="PR",
+                    form_type_description="Press Release",
+                    filed_date=pr.published_at.date() if hasattr(pr.published_at, 'date') else pr.published_at,
+                    headline=pr.headline,
+                    document_url=pr.url,
+                    event_type="press_release",
+                ))
+
+    # Sort merged events by date descending, apply limit
+    events.sort(key=lambda e: e.filed_date, reverse=True)
+    total = len(events)
+    events = events[:limit]
 
     return TimelineResponse(events=events, total=total)
 

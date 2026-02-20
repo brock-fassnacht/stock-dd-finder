@@ -15,6 +15,7 @@ function getFormTypeColor(formType: string): string {
   if (formType.includes('10-Q')) return '#3b82f6'
   if (formType.includes('8-K')) return '#eab308'
   if (formType === '4') return '#a855f7'
+  if (formType === 'PR') return '#f97316'
   return '#22c55e'
 }
 

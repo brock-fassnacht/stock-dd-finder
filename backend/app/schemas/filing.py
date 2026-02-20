@@ -36,6 +36,7 @@ class TimelineEvent(BaseModel):
     filed_date: date
     headline: Optional[str] = None
     document_url: str
+    event_type: str = "filing"  # "filing" or "press_release"
 
 
 class TimelineResponse(BaseModel):

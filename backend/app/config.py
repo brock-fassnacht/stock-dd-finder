@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # Groq model (override via GROQ_MODEL env var)
     groq_model: str = "llama-3.1-8b-instant"
 
+    # Finnhub
+    finnhub_api_key: str = ""
+
     # CORS
     allowed_origins: str = "http://localhost:5173,http://localhost:3000,https://*.vercel.app,https://tickerclaw.com,https://www.tickerclaw.com"
 
