@@ -407,9 +407,10 @@ Respond with ONLY the factual summary. No preamble."""
         return headline
 
     async def fetch_compensation_section(self, url: str, max_chars: int = 15000) -> str:
-        """Fetch DEF 14A and extract text around the compensation table.
+        """Fetch DEF 14A and extract the Summary Compensation Table.
 
-        Uses minimal cleaning to preserve table data (numbers, short lines).
+        Tries to find the actual HTML table with salary/stock data first,
+        then falls back to text extraction if no table is found.
         """
         async with httpx.AsyncClient() as client:
             response = await client.get(url, headers={
@@ -422,39 +423,57 @@ Respond with ONLY the factual summary. No preamble."""
         for tag in soup(['script', 'style', 'meta', 'link', 'header', 'footer', 'nav', 'ix:hidden']):
             tag.decompose()
 
-        full_text = soup.get_text(separator='\n')
+        # Strategy 1: Find the HTML compensation table directly
+        table_text = self._extract_comp_table_from_html(soup)
+        if table_text:
+            return table_text[:max_chars]
 
-        # Light cleaning — preserve numbers and short lines needed for tables
-        lines = full_text.split('\n')
-        cleaned = []
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            # Skip XBRL/XML metadata
-            if self._is_xbrl_or_metadata(line):
-                continue
-            # Skip lines that are just repeated formatting chars
-            if re.match(r'^[\s\-_=*#\.]+$', line):
-                continue
-            cleaned.append(line)
-        text = '\n'.join(cleaned)
+        # Strategy 2: Fall back to text extraction around markers
+        full_text = soup.get_text(separator='\n')
+        lines = [line.strip() for line in full_text.split('\n') if line.strip()]
+        text = '\n'.join(lines)
         text = re.sub(r'\n{3,}', '\n\n', text)
 
-        # Try to find the compensation table section
         comp_markers = [
             "summary compensation table",
-            "summary of compensation",
             "executive compensation",
         ]
         text_lower = text.lower()
+        # Use rfind to skip TOC entries and find the actual section
         for marker in comp_markers:
+            # Find last non-TOC occurrence (skip first which is usually TOC)
             idx = text_lower.find(marker)
-            if idx != -1:
-                start = max(0, idx - 500)
+            second = text_lower.find(marker, idx + 100) if idx != -1 else -1
+            use_idx = second if second != -1 else idx
+            if use_idx != -1:
+                start = max(0, use_idx - 200)
                 return text[start:start + max_chars]
 
         return text[:max_chars]
+
+    def _extract_comp_table_from_html(self, soup: BeautifulSoup) -> str | None:
+        """Find and extract the Summary Compensation Table from HTML tables."""
+        tables = soup.find_all('table')
+
+        for table in tables:
+            text = table.get_text().lower()
+            # Look for a table with salary + stock/option + total columns
+            has_salary = 'salary' in text
+            has_equity = 'stock' in text or 'option' in text
+            has_total = 'total' in text
+            if has_salary and has_equity and has_total:
+                # Convert table to readable text format
+                rows = table.find_all('tr')
+                result_lines = ["Summary Compensation Table:"]
+                for row in rows:
+                    cells = [td.get_text(strip=True) for td in row.find_all(['td', 'th'])]
+                    # Filter out empty cells but keep structure
+                    cells = [c for c in cells if c]
+                    if cells:
+                        result_lines.append(' | '.join(cells))
+                return '\n'.join(result_lines)
+
+        return None
 
     def extract_executive_compensation(self, company_name: str, filing_text: str) -> list[dict]:
         """Extract executive compensation data from a DEF 14A proxy filing using Groq."""
