@@ -7,6 +7,7 @@ from typing import Optional
 from ..database import get_db
 from ..models import Company, Filing, ExecutiveCompensation
 from ..services.summarizer import SummarizerService
+from ..services.edgar import EdgarService
 
 logger = logging.getLogger(__name__)
 
@@ -55,45 +56,76 @@ async def extract_compensation(
     ticker: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    """Extract exec comp from most recent DEF 14A filings."""
-    query = db.query(Filing).join(Company).filter(Filing.form_type == "DEF 14A")
+    """Extract exec comp from most recent DEF 14A filings.
 
+    If a company has no DEF 14A in the database, fetches directly from EDGAR.
+    """
+    # Get companies to process
+    company_query = db.query(Company)
     if ticker:
-        query = query.filter(Company.ticker == ticker.upper())
+        company_query = company_query.filter(Company.ticker == ticker.upper())
+    companies = company_query.all()
 
-    filings = query.order_by(Filing.filed_date.desc()).all()
-
-    # Deduplicate to most recent per company
-    seen_companies: set[int] = set()
-    target_filings = []
-    for f in filings:
-        if f.company_id not in seen_companies:
-            seen_companies.add(f.company_id)
-            target_filings.append(f)
-
+    edgar = EdgarService()
     summarizer = SummarizerService()
     results = {"extracted": 0, "skipped": 0, "errors": []}
 
-    for filing in target_filings:
-        # Skip if already extracted
+    for company in companies:
+        # Check if already extracted for this company
         existing = db.query(ExecutiveCompensation).filter(
-            ExecutiveCompensation.filing_id == filing.id
+            ExecutiveCompensation.company_id == company.id
         ).first()
         if existing:
             results["skipped"] += 1
             continue
 
+        # Find DEF 14A in database
+        filing = db.query(Filing).filter(
+            Filing.company_id == company.id,
+            Filing.form_type == "DEF 14A",
+        ).order_by(Filing.filed_date.desc()).first()
+
+        # If not in DB, fetch from EDGAR directly
+        if not filing:
+            try:
+                logger.info(f"No DEF 14A in DB for {company.ticker}, fetching from EDGAR...")
+                edgar_filings = await edgar.get_company_filings(
+                    cik=company.cik,
+                    form_types=["DEF 14A"],
+                    limit=1,
+                )
+                if edgar_filings:
+                    ef = edgar_filings[0]
+                    filing = Filing(
+                        company_id=company.id,
+                        accession_number=ef.accession_number,
+                        form_type=ef.form_type,
+                        filed_date=ef.filed_date,
+                        document_url=ef.document_url,
+                    )
+                    db.add(filing)
+                    db.commit()
+                    db.refresh(filing)
+                    logger.info(f"Fetched DEF 14A for {company.ticker} filed {ef.filed_date}")
+                else:
+                    logger.info(f"No DEF 14A found on EDGAR for {company.ticker}")
+                    continue
+            except Exception as e:
+                results["errors"].append(f"{company.ticker}: Failed to fetch DEF 14A from EDGAR: {e}")
+                logger.error(f"EDGAR fetch failed for {company.ticker}: {e}")
+                continue
+
         try:
-            logger.info(f"Extracting exec comp for {filing.company.ticker} from filing {filing.id}")
+            logger.info(f"Extracting exec comp for {company.ticker} from filing {filing.id}")
             text = await summarizer.fetch_compensation_section(filing.document_url)
             comp_data = summarizer.extract_executive_compensation(
-                filing.company.name, text
+                company.name, text
             )
 
             for exec_entry in comp_data:
                 db.add(ExecutiveCompensation(
                     filing_id=filing.id,
-                    company_id=filing.company_id,
+                    company_id=company.id,
                     executive_name=exec_entry.get("name", "Unknown"),
                     position=exec_entry.get("position"),
                     total_compensation=exec_entry.get("total_compensation"),
@@ -108,13 +140,13 @@ async def extract_compensation(
 
             db.commit()
             results["extracted"] += len(comp_data)
-            logger.info(f"Extracted {len(comp_data)} executives for {filing.company.ticker}")
+            logger.info(f"Extracted {len(comp_data)} executives for {company.ticker}")
 
             # Rate limit Groq calls
             await asyncio.sleep(5)
 
         except Exception as e:
-            results["errors"].append(f"{filing.company.ticker}: {str(e)}")
-            logger.error(f"Exec comp extraction failed for {filing.company.ticker}: {e}")
+            results["errors"].append(f"{company.ticker}: {str(e)}")
+            logger.error(f"Exec comp extraction failed for {company.ticker}: {e}")
 
     return results

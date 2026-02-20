@@ -1,25 +1,94 @@
+import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { useExecComp } from '../hooks'
+import { useExecComp, useCompanies } from '../hooks'
 import { Loading } from '../components'
+import type { ExecCompEntry } from '../api/types'
+
+const ROLE_FILTERS = ['CEO', 'CFO', 'COO', 'CLO', 'CTO', 'Other'] as const
+type RoleFilter = typeof ROLE_FILTERS[number]
 
 function formatDollars(value: number | null): string {
   if (value == null) return '—'
   return '$' + value.toLocaleString('en-US', { maximumFractionDigits: 0 })
 }
 
+function getTotalComp(entry: ExecCompEntry): number | null {
+  const cash = (entry.salary ?? 0) + (entry.bonus ?? 0)
+  const equity = (entry.stock_awards ?? 0) + (entry.option_awards ?? 0)
+  const other = entry.other_compensation ?? 0
+  const total = cash + equity + other
+  return total > 0 ? total : entry.total_compensation
+}
+
+function matchesRole(position: string | null, role: RoleFilter): boolean {
+  if (!position) return role === 'Other'
+  const p = position.toLowerCase()
+  switch (role) {
+    case 'CEO': return p.includes('chief executive') || p.includes('ceo')
+    case 'CFO': return p.includes('chief financial') || p.includes('cfo')
+    case 'COO': return p.includes('chief operating') || p.includes('coo')
+    case 'CLO': return p.includes('chief legal') || p.includes('clo') || p.includes('general counsel')
+    case 'CTO': return p.includes('chief technology') || p.includes('cto')
+    case 'Other': {
+      const knownRoles = ['chief executive', 'ceo', 'chief financial', 'cfo', 'chief operating', 'coo', 'chief legal', 'clo', 'general counsel', 'chief technology', 'cto']
+      return !knownRoles.some(r => p.includes(r))
+    }
+  }
+}
+
 export default function ExecCompPage() {
   const { data: entries, isLoading, error } = useExecComp()
+  const { data: companies } = useCompanies()
+  const [tickerFilter, setTickerFilter] = useState<string>('')
+  const [roleFilter, setRoleFilter] = useState<RoleFilter | ''>('')
+
+  const filtered = useMemo(() => {
+    if (!entries) return []
+    return entries
+      .filter(e => !tickerFilter || e.ticker === tickerFilter)
+      .filter(e => !roleFilter || matchesRole(e.position, roleFilter))
+      .map(e => ({ ...e, computed_total: getTotalComp(e) }))
+      .sort((a, b) => (b.computed_total ?? 0) - (a.computed_total ?? 0))
+  }, [entries, tickerFilter, roleFilter])
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="bg-white shadow-sm border-b px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Link to="/" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-            TickerClaw
-          </Link>
-          <span className="text-gray-300">|</span>
-          <h1 className="text-base sm:text-xl font-bold text-gray-900">Executive Compensation</h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <Link to="/" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+              TickerClaw
+            </Link>
+            <span className="text-gray-300">|</span>
+            <h1 className="text-base sm:text-xl font-bold text-gray-900">Executive Compensation</h1>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Company filter */}
+            <select
+              value={tickerFilter}
+              onChange={e => setTickerFilter(e.target.value)}
+              className="px-2 py-1.5 border rounded text-sm bg-white"
+            >
+              <option value="">All Companies</option>
+              {companies?.map(c => (
+                <option key={c.ticker} value={c.ticker}>{c.ticker}</option>
+              ))}
+            </select>
+
+            {/* Role filter */}
+            <select
+              value={roleFilter}
+              onChange={e => setRoleFilter(e.target.value as RoleFilter | '')}
+              className="px-2 py-1.5 border rounded text-sm bg-white"
+            >
+              <option value="">All Roles</option>
+              {ROLE_FILTERS.map(role => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </header>
 
@@ -31,9 +100,9 @@ export default function ExecCompPage() {
           <div className="text-center py-12 text-red-600">
             Failed to load compensation data.
           </div>
-        ) : !entries?.length ? (
+        ) : !filtered.length ? (
           <div className="text-center py-12 text-gray-500">
-            <p className="text-lg mb-2">No compensation data available yet.</p>
+            <p className="text-lg mb-2">No compensation data available{tickerFilter || roleFilter ? ' for this filter' : ' yet'}.</p>
             <p className="text-sm">Data is extracted from DEF 14A proxy filings for tracked companies.</p>
           </div>
         ) : (
@@ -49,7 +118,7 @@ export default function ExecCompPage() {
                 </tr>
               </thead>
               <tbody>
-                {entries.map((entry, idx) => (
+                {filtered.map((entry, idx) => (
                   <tr
                     key={entry.id}
                     className={`border-b last:border-b-0 hover:bg-gray-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
@@ -69,10 +138,10 @@ export default function ExecCompPage() {
                           className="text-blue-700 hover:underline"
                           title="View source filing"
                         >
-                          {formatDollars(entry.total_compensation)}
+                          {formatDollars(entry.computed_total)}
                         </a>
                       ) : (
-                        formatDollars(entry.total_compensation)
+                        formatDollars(entry.computed_total)
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm text-center text-gray-600">
