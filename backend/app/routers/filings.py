@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import Optional, List
 from ..database import get_db, SessionLocal
-from ..models import Company, Filing, PressRelease
+from ..models import Company, Filing, PressRelease, ExecutiveCompensation
 from ..schemas import FilingResponse, FilingDetail, TimelineResponse
 from ..schemas.filing import TimelineEvent
 from ..services import EdgarService, SummarizerService, FinnhubService
@@ -128,7 +128,7 @@ async def _run_sync():
                 try:
                     news_items = await finnhub.get_company_news(
                         symbol=company.ticker,
-                        from_date=since_date,
+                        from_date=date.today() - timedelta(days=7),
                         to_date=date.today(),
                     )
                     for item in news_items:
@@ -156,6 +156,74 @@ async def _run_sync():
             except Exception as e:
                 _sync_state["errors"].append(f"{company.ticker}: {str(e)}")
                 logger.error(f"Sync error for {company.ticker}: {e}")
+
+        # --- Executive compensation extraction ---
+        _sync_state["message"] = "Extracting executive compensation..."
+        try:
+            exec_extracted = 0
+            for company in companies:
+                existing = db.query(ExecutiveCompensation).filter(
+                    ExecutiveCompensation.company_id == company.id
+                ).first()
+                if existing:
+                    continue
+
+                filing = db.query(Filing).filter(
+                    Filing.company_id == company.id,
+                    Filing.form_type == "DEF 14A",
+                ).order_by(Filing.filed_date.desc()).first()
+
+                if not filing:
+                    try:
+                        edgar_filings = await edgar.get_company_filings(
+                            cik=company.cik, form_types=["DEF 14A"], limit=1,
+                        )
+                        if not edgar_filings:
+                            continue
+                        ef = edgar_filings[0]
+                        filing = Filing(
+                            company_id=company.id,
+                            accession_number=ef.accession_number,
+                            form_type=ef.form_type,
+                            filed_date=ef.filed_date,
+                            document_url=ef.document_url,
+                        )
+                        db.add(filing)
+                        db.commit()
+                        db.refresh(filing)
+                    except Exception as e:
+                        logger.error(f"Exec comp: failed to fetch DEF 14A for {company.ticker}: {e}")
+                        continue
+
+                try:
+                    _sync_state["message"] = f"Extracting exec comp for {company.ticker}..."
+                    text = await summarizer.fetch_compensation_section(filing.document_url)
+                    comp_data = summarizer.extract_executive_compensation(company.name, text)
+                    for entry in comp_data:
+                        db.add(ExecutiveCompensation(
+                            filing_id=filing.id,
+                            company_id=company.id,
+                            executive_name=entry.get("name", "Unknown"),
+                            position=entry.get("position"),
+                            total_compensation=entry.get("total_compensation"),
+                            salary=entry.get("salary"),
+                            bonus=entry.get("bonus"),
+                            stock_awards=entry.get("stock_awards"),
+                            option_awards=entry.get("option_awards"),
+                            other_compensation=entry.get("other_compensation"),
+                            fiscal_year=entry.get("fiscal_year"),
+                            filed_date=filing.filed_date,
+                        ))
+                    db.commit()
+                    exec_extracted += len(comp_data)
+                    await asyncio.sleep(5)
+                except Exception as e:
+                    logger.error(f"Exec comp extraction failed for {company.ticker}: {e}")
+
+            if exec_extracted:
+                logger.info(f"Exec comp sync: extracted {exec_extracted} entries")
+        except Exception as e:
+            logger.error(f"Exec comp sync failed: {e}")
 
         fetched = _sync_state["fetched"]
         skipped = _sync_state["skipped"]
