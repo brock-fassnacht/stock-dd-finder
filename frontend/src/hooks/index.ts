@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getCompanies, getTimeline, getFiling, getPrices, searchTickers } from '../api'
+import { getCompanies, getTimeline, getFiling, getPrices, searchTickers, getExecComp } from '../api'
 
 const MOBILE_BREAKPOINT = 640
 
@@ -50,6 +50,13 @@ export function useTickerSearch(query: string) {
     enabled: query.length >= 1,
     staleTime: 1000 * 60 * 5,
     placeholderData: (prev) => prev,
+  })
+}
+
+export function useExecComp(params?: { ticker?: string }) {
+  return useQuery({
+    queryKey: ['execComp', params],
+    queryFn: () => getExecComp(params),
   })
 }
 

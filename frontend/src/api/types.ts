@@ -58,6 +58,23 @@ export interface TickerSearchResult {
   name: string
 }
 
+export interface ExecCompEntry {
+  id: number
+  ticker: string
+  company_name: string
+  executive_name: string
+  position: string | null
+  total_compensation: number | null
+  salary: number | null
+  bonus: number | null
+  stock_awards: number | null
+  option_awards: number | null
+  other_compensation: number | null
+  fiscal_year: number | null
+  filed_date: string
+  document_url: string | null
+}
+
 export interface SyncStatus {
   running: boolean
   fetched: number

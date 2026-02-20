@@ -7,7 +7,7 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from .database import engine, Base
-from .routers import companies_router, filings_router, prices_router
+from .routers import companies_router, filings_router, prices_router, exec_comp_router
 from .config import get_settings
 from .services.sync import sync_all_companies
 
@@ -103,6 +103,7 @@ app.add_middleware(WildcardCORSMiddleware)
 app.include_router(companies_router)
 app.include_router(filings_router)
 app.include_router(prices_router)
+app.include_router(exec_comp_router)
 
 
 @app.get("/")

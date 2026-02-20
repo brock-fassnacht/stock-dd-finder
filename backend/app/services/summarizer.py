@@ -406,6 +406,73 @@ Respond with ONLY the factual summary. No preamble."""
 
         return headline
 
+    async def fetch_compensation_section(self, url: str, max_chars: int = 15000) -> str:
+        """Fetch DEF 14A and extract text around the compensation table."""
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers={
+                "User-Agent": "StockDDFinder contact@example.com"
+            }, timeout=30.0)
+            response.raise_for_status()
+            html = response.text
+
+        soup = BeautifulSoup(html, 'lxml')
+        for tag in soup(['script', 'style', 'meta', 'link', 'header', 'footer', 'nav', 'ix:hidden']):
+            tag.decompose()
+
+        full_text = soup.get_text(separator='\n')
+
+        # Try to find the compensation table section
+        comp_markers = [
+            "summary compensation table",
+            "summary of compensation",
+            "executive compensation",
+        ]
+        text_lower = full_text.lower()
+        for marker in comp_markers:
+            idx = text_lower.find(marker)
+            if idx != -1:
+                start = max(0, idx - 500)
+                return self._clean_text(full_text[start:start + max_chars])
+
+        return self._clean_text(full_text[:max_chars])
+
+    def extract_executive_compensation(self, company_name: str, filing_text: str) -> list[dict]:
+        """Extract executive compensation data from a DEF 14A proxy filing using Groq."""
+        import json
+
+        prompt = f"""Extract the Summary Compensation Table from this {company_name} proxy statement (DEF 14A).
+
+Return a JSON array of executive compensation entries. Each entry should have:
+- "name": full name of the executive
+- "position": their title (CEO, CFO, COO, etc.)
+- "total_compensation": total compensation in dollars (number only, no $ or commas)
+- "salary": base salary in dollars (number only)
+- "bonus": bonus in dollars (number only)
+- "stock_awards": stock awards value in dollars (number only)
+- "option_awards": option awards value in dollars (number only)
+- "other_compensation": all other compensation in dollars (number only)
+- "fiscal_year": the year the compensation is for (integer)
+
+If a field is not available, use null.
+Only include the top 5 highest-compensated executives.
+Return ONLY valid JSON array, no other text.
+
+Filing content:
+{filing_text[:12000]}"""
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000,
+            temperature=0.0,
+        )
+
+        raw = response.choices[0].message.content.strip()
+        # Strip markdown code fences if present
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        return json.loads(raw)
+
     def get_form_type_description(self, form_type: str) -> str:
         """Get a human-readable description of an SEC form type."""
         descriptions = {

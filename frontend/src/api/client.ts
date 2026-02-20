@@ -1,4 +1,4 @@
-import type { Company, TimelineResponse, Filing, PriceResponse, TickerSearchResult, SyncStatus } from './types'
+import type { Company, TimelineResponse, Filing, PriceResponse, TickerSearchResult, SyncStatus, ExecCompEntry } from './types'
 
 function getApiBase(): string {
   // Explicit env var takes priority
@@ -119,6 +119,16 @@ export async function getSyncStatus(): Promise<SyncStatus> {
 // Ticker search
 export async function searchTickers(query: string): Promise<TickerSearchResult[]> {
   return fetchJson(`/companies/search?q=${encodeURIComponent(query)}`)
+}
+
+// Executive compensation
+export async function getExecComp(params?: {
+  ticker?: string
+}): Promise<ExecCompEntry[]> {
+  const searchParams = new URLSearchParams()
+  if (params?.ticker) searchParams.set('ticker', params.ticker)
+  const query = searchParams.toString()
+  return fetchJson(`/exec-comp${query ? `?${query}` : ''}`)
 }
 
 // Prices
