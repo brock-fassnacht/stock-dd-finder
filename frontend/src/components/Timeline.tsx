@@ -15,7 +15,7 @@ function getFormTypeColor(formType: string): string {
   if (formType.includes('10-Q')) return '#3b82f6'
   if (formType.includes('8-K')) return '#eab308'
   if (formType === '4') return '#a855f7'
-  if (formType === 'PR') return '#f97316'
+  if (formType === 'PR') return '#ffffff'
   return '#22c55e'
 }
 
@@ -172,10 +172,10 @@ export function Timeline({ events, onEventClick }: TimelineProps) {
                         {event.ticker}
                       </span>
                       <span
-                        className="text-[11px] font-bold px-1.5 py-0.5 rounded text-white"
+                        className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${event.form_type === 'PR' ? 'text-gray-900' : 'text-white'}`}
                         style={{ backgroundColor: getFormTypeColor(event.form_type) }}
                       >
-                        {event.form_type}
+                        {event.form_type === 'PR' ? 'News' : event.form_type}
                       </span>
                     </div>
 

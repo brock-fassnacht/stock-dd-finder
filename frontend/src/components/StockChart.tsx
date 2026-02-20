@@ -335,7 +335,7 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
             <span className="text-gray-400">S-1</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f97316' }}></span>
+            <span className="w-3 h-3 rounded-full bg-white"></span>
             <span className="text-gray-400">News</span>
           </div>
           <div className="flex items-center gap-2">
@@ -405,6 +405,6 @@ function getMarkerColor(formType: string): string {
   if (formType.includes('10-Q')) return '#3b82f6'
   if (formType.includes('8-K')) return '#eab308'
   if (formType === '4') return '#a855f7'
-  if (formType === 'PR') return '#f97316'
+  if (formType === 'PR') return '#ffffff'
   return '#22c55e'
 }
