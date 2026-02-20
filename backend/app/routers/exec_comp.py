@@ -127,10 +127,12 @@ async def extract_compensation(
             )
 
             for exec_entry in comp_data:
+                if not exec_entry.get("name"):
+                    continue
                 db.add(ExecutiveCompensation(
                     filing_id=filing.id,
                     company_id=company.id,
-                    executive_name=exec_entry.get("name", "Unknown"),
+                    executive_name=exec_entry["name"],
                     position=exec_entry.get("position"),
                     total_compensation=exec_entry.get("total_compensation"),
                     salary=exec_entry.get("salary"),

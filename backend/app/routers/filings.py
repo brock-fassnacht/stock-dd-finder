@@ -208,10 +208,12 @@ async def _run_sync():
                     text = await summarizer.fetch_compensation_section(filing.document_url)
                     comp_data = summarizer.extract_executive_compensation(company.name, text)
                     for entry in comp_data:
+                        if not entry.get("name"):
+                            continue
                         db.add(ExecutiveCompensation(
                             filing_id=filing.id,
                             company_id=company.id,
-                            executive_name=entry.get("name", "Unknown"),
+                            executive_name=entry["name"],
                             position=entry.get("position"),
                             total_compensation=entry.get("total_compensation"),
                             salary=entry.get("salary"),

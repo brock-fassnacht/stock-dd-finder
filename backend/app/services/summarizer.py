@@ -407,7 +407,10 @@ Respond with ONLY the factual summary. No preamble."""
         return headline
 
     async def fetch_compensation_section(self, url: str, max_chars: int = 15000) -> str:
-        """Fetch DEF 14A and extract text around the compensation table."""
+        """Fetch DEF 14A and extract text around the compensation table.
+
+        Uses minimal cleaning to preserve table data (numbers, short lines).
+        """
         async with httpx.AsyncClient() as client:
             response = await client.get(url, headers={
                 "User-Agent": "StockDDFinder contact@example.com"
@@ -421,20 +424,37 @@ Respond with ONLY the factual summary. No preamble."""
 
         full_text = soup.get_text(separator='\n')
 
+        # Light cleaning — preserve numbers and short lines needed for tables
+        lines = full_text.split('\n')
+        cleaned = []
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            # Skip XBRL/XML metadata
+            if self._is_xbrl_or_metadata(line):
+                continue
+            # Skip lines that are just repeated formatting chars
+            if re.match(r'^[\s\-_=*#\.]+$', line):
+                continue
+            cleaned.append(line)
+        text = '\n'.join(cleaned)
+        text = re.sub(r'\n{3,}', '\n\n', text)
+
         # Try to find the compensation table section
         comp_markers = [
             "summary compensation table",
             "summary of compensation",
             "executive compensation",
         ]
-        text_lower = full_text.lower()
+        text_lower = text.lower()
         for marker in comp_markers:
             idx = text_lower.find(marker)
             if idx != -1:
                 start = max(0, idx - 500)
-                return self._clean_text(full_text[start:start + max_chars])
+                return text[start:start + max_chars]
 
-        return self._clean_text(full_text[:max_chars])
+        return text[:max_chars]
 
     def extract_executive_compensation(self, company_name: str, filing_text: str) -> list[dict]:
         """Extract executive compensation data from a DEF 14A proxy filing using Groq."""
