@@ -336,7 +336,7 @@ export function StockChart({ ticker, candles, filings, onFilingClick: _onFilingC
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f97316' }}></span>
-            <span className="text-gray-400">Press Release</span>
+            <span className="text-gray-400">News</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-green-500"></span>
