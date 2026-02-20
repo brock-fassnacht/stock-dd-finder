@@ -20,6 +20,19 @@ class FinnhubNewsItem:
     datetime: int  # Unix timestamp
 
 
+# Wire services companies use to distribute official press releases
+PRESS_RELEASE_SOURCES = {
+    "pr newswire",
+    "business wire",
+    "businesswire",
+    "globenewswire",
+    "globe newswire",
+    "accesswire",
+    "cision",
+    "prnewswire",
+}
+
+
 class FinnhubService:
     BASE_URL = "https://finnhub.io/api/v1"
 
@@ -58,10 +71,14 @@ class FinnhubService:
         items = []
         for item in data:
             try:
+                source = item.get("source", "")
+                # Only keep official press releases from wire services
+                if source.lower() not in PRESS_RELEASE_SOURCES:
+                    continue
                 items.append(FinnhubNewsItem(
                     id=item["id"],
                     headline=item["headline"],
-                    source=item.get("source", ""),
+                    source=source,
                     url=item["url"],
                     datetime=item["datetime"],
                 ))
