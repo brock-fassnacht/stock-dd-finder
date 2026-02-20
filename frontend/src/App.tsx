@@ -24,7 +24,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [selectedFormTypes, setSelectedFormTypes] = useState<string[]>(
-    FORM_TYPES.map(ft => ft.value)
+    FORM_TYPES.filter(ft => ft.value !== 'PR').map(ft => ft.value)
   )
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
   const [unsupportedMsg, setUnsupportedMsg] = useState<string | null>(null)
