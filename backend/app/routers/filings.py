@@ -22,6 +22,7 @@ _sync_state: dict = {
     "running": False,
     "fetched": 0,
     "skipped": 0,
+    "pr_fetched": 0,
     "errors": [],
     "current": None,
     "message": "No sync has run yet",
@@ -36,6 +37,7 @@ async def _run_sync():
         "running": True,
         "fetched": 0,
         "skipped": 0,
+        "pr_fetched": 0,
         "errors": [],
         "current": None,
         "message": "Starting sync...",
@@ -142,6 +144,7 @@ async def _run_sync():
                             url=item.url,
                             published_at=datetime.fromtimestamp(item.datetime),
                         ))
+                        _sync_state["pr_fetched"] += 1
                     db.commit()
                 except Exception as e:
                     _sync_state["errors"].append(
@@ -155,13 +158,14 @@ async def _run_sync():
 
         fetched = _sync_state["fetched"]
         skipped = _sync_state["skipped"]
+        pr_fetched = _sync_state["pr_fetched"]
         _sync_state.update({
             "running": False,
             "current": None,
-            "message": f"Done — {fetched} new filings added, {skipped} already stored",
+            "message": f"Done — {fetched} new filings, {skipped} already stored, {pr_fetched} press releases",
             "completed_at": datetime.utcnow().isoformat(),
         })
-        logger.info(f"Full sync complete: {fetched} fetched, {skipped} skipped")
+        logger.info(f"Full sync complete: {fetched} fetched, {skipped} skipped, {pr_fetched} press releases")
 
     except Exception as e:
         _sync_state.update({
