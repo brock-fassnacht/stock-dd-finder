@@ -128,7 +128,7 @@ export async function getExecComp(params?: {
   const searchParams = new URLSearchParams()
   if (params?.ticker) searchParams.set('ticker', params.ticker)
   const query = searchParams.toString()
-  return fetchJson(`/exec-comp${query ? `?${query}` : ''}`)
+  return fetchJson(`/exec-comp/${query ? `?${query}` : ''}`)
 }
 
 // Prices
