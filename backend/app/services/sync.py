@@ -13,7 +13,7 @@ FORM_TYPES = ["10-K", "10-Q", "8-K", "4", "S-1", "DEF 14A"]
 
 
 async def sync_all_companies():
-    """Fetch new filings and press releases for all tracked companies. No AI summarization."""
+    """Fetch new filings and press releases for all tracked companies with AI summarization."""
     db = SessionLocal()
     try:
         companies = db.query(Company).all()
@@ -23,6 +23,7 @@ async def sync_all_companies():
 
         edgar = EdgarService()
         finnhub = FinnhubService()
+        summarizer = SummarizerService()
         fetched = 0
         skipped = 0
         pr_fetched = 0
@@ -46,13 +47,40 @@ async def sync_all_companies():
                         skipped += 1
                         continue
 
+                    # Generate AI headline for non-Form 4 filings
+                    headline = None
+                    if ef.form_type != "4":
+                        for attempt in range(3):
+                            try:
+                                text = await summarizer.fetch_filing_text(
+                                    ef.document_url, max_chars=5000
+                                )
+                                headline = summarizer.generate_headline(
+                                    ef.form_type, company.name, text
+                                )
+                                await asyncio.sleep(22)
+                                break
+                            except Exception as e:
+                                if attempt < 2:
+                                    logger.warning(
+                                        f"Scheduled sync: summary rate limited for "
+                                        f"{company.ticker} {ef.form_type}, "
+                                        f"waiting 60s (attempt {attempt + 1}/3)"
+                                    )
+                                    await asyncio.sleep(60)
+                                else:
+                                    logger.error(
+                                        f"Scheduled sync: summary failed for "
+                                        f"{company.ticker} {ef.form_type}: {e}"
+                                    )
+
                     db.add(Filing(
                         company_id=company.id,
                         accession_number=ef.accession_number,
                         form_type=ef.form_type,
                         filed_date=ef.filed_date,
                         document_url=ef.document_url,
-                        headline=None,
+                        headline=headline,
                     ))
                     fetched += 1
 
@@ -92,7 +120,8 @@ async def sync_all_companies():
                 logger.error(f"Scheduled sync Finnhub error for {company.ticker}: {e}")
 
         logger.info(
-            f"Scheduled sync complete: {fetched} new filings, {skipped} already stored, {pr_fetched} press releases"
+            f"Scheduled sync complete: {fetched} new filings (with summaries), "
+            f"{skipped} already stored, {pr_fetched} press releases"
         )
 
         # --- Executive compensation extraction ---
