@@ -57,7 +57,13 @@ export default function ExecCompPage() {
       <header className="bg-white shadow-sm border-b px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            <Link to="/" className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+            <Link to="/" className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1.5">
+              <svg className="w-5 h-5 text-red-500" viewBox="0 0 64 64" fill="currentColor">
+                <path d="M12 48c0-4 2-12 6-18l-8-14c-1-2 0-4 2-4h4l6 10c4-4 9-7 14-8V6c0-2 2-4 4-2l2 4v8c5 1 10 4 14 8l6-10h4c2 0 3 2 2 4l-8 14c4 6 6 14 6 18" />
+                <path d="M20 44c-2-8 2-16 12-20M44 44c2-8-2-16-12-20" strokeWidth="2" stroke="currentColor" fill="none" />
+                <circle cx="26" cy="32" r="2" />
+                <circle cx="38" cy="32" r="2" />
+              </svg>
               TickerClaw
             </Link>
             <span className="text-gray-300">|</span>

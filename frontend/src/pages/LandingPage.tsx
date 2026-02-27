@@ -5,16 +5,24 @@ export default function LandingPage() {
     <div className="min-h-screen bg-gray-900 flex flex-col">
       {/* Header */}
       <header className="px-6 py-4">
-        <h1 className="text-2xl font-bold text-white">TickerClaw</h1>
+        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <svg className="w-8 h-8 text-red-500" viewBox="0 0 64 64" fill="currentColor">
+            <path d="M12 48c0-4 2-12 6-18l-8-14c-1-2 0-4 2-4h4l6 10c4-4 9-7 14-8V6c0-2 2-4 4-2l2 4v8c5 1 10 4 14 8l6-10h4c2 0 3 2 2 4l-8 14c4 6 6 14 6 18" />
+            <path d="M20 44c-2-8 2-16 12-20M44 44c2-8-2-16-12-20" strokeWidth="2" stroke="currentColor" fill="none" />
+            <circle cx="26" cy="32" r="2" />
+            <circle cx="38" cy="32" r="2" />
+          </svg>
+          TickerClaw
+        </h1>
       </header>
 
       {/* Hero */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 -mt-16">
         <h2 className="text-4xl sm:text-5xl font-bold text-white text-center mb-4">
-          SEC Filings, Simplified
+          Your AI-Powered Stock Research Hub
         </h2>
         <p className="text-lg text-gray-400 text-center max-w-xl mb-12">
-          Track SEC filings, insider trades, and executive compensation for the companies you follow — all in one place.
+          AI agents that help you stay on top of stock data, surface key insights, and discover your next investment idea.
         </p>
 
         {/* Navigation cards */}
