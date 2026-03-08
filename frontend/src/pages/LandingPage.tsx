@@ -23,7 +23,7 @@ export default function LandingPage() {
             <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-gray-900 via-gray-900 to-red-950/40 p-8 sm:p-10 flex flex-col justify-between min-h-[520px]">
               <div>
                 <h2 className="text-4xl sm:text-5xl font-bold text-white leading-tight mb-5 max-w-xl">
-                  We are going to claw all the research together so you don't have to.
+                  Claw through the noise. Find the thesis.
                 </h2>
                 <p className="text-lg text-gray-400 max-w-xl">
                   Jump from market narratives to filings and executive pay without bouncing between ten different tabs and tools.
