@@ -37,7 +37,7 @@ function prettySourceType(sourceType: string) {
 }
 
 function voteButtonClasses(direction: 'up' | 'down', disabled: boolean) {
-  const base = 'rounded-full border px-3 py-1.5 text-xs font-medium transition'
+  const base = 'rounded-full border px-2.5 py-1 text-[11px] font-medium transition'
   if (disabled) {
     return `${base} cursor-not-allowed border-white/10 bg-white/5 text-stone-500`
   }
@@ -62,32 +62,32 @@ function ArgumentCard({
   const linkTone = tone === 'bull' ? 'text-emerald-300 hover:text-emerald-200' : 'text-rose-300 hover:text-rose-200'
 
   return (
-    <article className={`rounded-2xl border ${borderTone} bg-white/5 p-4 h-[320px] flex flex-col`}>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${sourceToneClass(argument.source_type)}`}>
+    <article className={`rounded-2xl border ${borderTone} bg-white/5 p-3 h-[180px] flex flex-col`}>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${sourceToneClass(argument.source_type)}`}>
             {prettySourceType(argument.source_type)}
           </span>
           {argument.is_user_generated && (
-            <span className="inline-flex items-center rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-200">
+            <span className="inline-flex items-center rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-200">
               Member post
             </span>
           )}
         </div>
-        <span className="text-xs text-stone-400">
+        <span className="text-[11px] text-stone-400">
           {new Date(argument.as_of_date).toLocaleDateString()}
         </span>
       </div>
 
-      <h4 className="text-lg font-semibold text-white mb-2 leading-tight">{argument.title}</h4>
+      <h4 className="text-base font-semibold text-white mb-1.5 leading-tight">{argument.title}</h4>
 
-      <div className="mb-4 flex-1 overflow-y-auto pr-1">
-        <p className="text-sm text-stone-300 whitespace-pre-wrap">{argument.summary}</p>
+      <div className="mb-2 flex-1 overflow-y-auto pr-1">
+        <p className="text-xs leading-5 text-stone-300 whitespace-pre-wrap">{argument.summary}</p>
       </div>
 
-      <div className="mt-auto space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <span className="text-stone-400">
+      <div className="mt-auto space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="text-stone-400 truncate max-w-[70%]">
             {argument.source_name}{argument.author_handle ? ` - ${argument.author_handle}` : ''}
           </span>
           {argument.url && (
@@ -102,20 +102,20 @@ function ArgumentCard({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
-          <div className="flex items-center gap-2 text-xs text-stone-400">
-            <span>Score {argument.vote_score > 0 ? `+${argument.vote_score}` : argument.vote_score}</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-2">
+          <div className="flex items-center gap-2 text-[11px] text-stone-400">
+            <span>{argument.vote_score > 0 ? `+${argument.vote_score}` : argument.vote_score}</span>
             <span>{argument.upvotes} up</span>
             <span>{argument.downvotes} down</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               disabled={argument.has_voted || isVoting}
               onClick={() => onVote('up')}
               className={voteButtonClasses('up', argument.has_voted || isVoting)}
             >
-              {isVoting ? '...' : 'Upvote'}
+              {isVoting ? '...' : 'Up'}
             </button>
             <button
               type="button"
@@ -123,7 +123,7 @@ function ArgumentCard({
               onClick={() => onVote('down')}
               className={voteButtonClasses('down', argument.has_voted || isVoting)}
             >
-              {isVoting ? '...' : 'Downvote'}
+              {isVoting ? '...' : 'Down'}
             </button>
           </div>
         </div>
@@ -144,6 +144,7 @@ export default function BearVsBullPage() {
   const [voteError, setVoteError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [votingKey, setVotingKey] = useState<string | null>(null)
+  const [isComposerOpen, setIsComposerOpen] = useState(false)
 
   useEffect(() => {
     if (!tickerFilter && companies?.length) {
@@ -184,6 +185,7 @@ export default function BearVsBullPage() {
       })
       setTitle('')
       setSummary('')
+      setIsComposerOpen(false)
       await queryClient.invalidateQueries({ queryKey: ['bearVsBull'] })
     } catch (err) {
       setPostError(err instanceof Error ? err.message : 'Failed to publish post')
@@ -204,6 +206,11 @@ export default function BearVsBullPage() {
     } finally {
       setVotingKey(null)
     }
+  }
+
+  function toggleComposer() {
+    setPostError(null)
+    setIsComposerOpen(open => !open)
   }
 
   return (
@@ -279,105 +286,111 @@ export default function BearVsBullPage() {
           </div>
         </section>
 
-        <section className="mb-6 rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+        <section className="mb-4 rounded-3xl border border-white/10 bg-white/[0.03] px-4 py-3 sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-stone-500 mb-2">Community Posting</p>
-              <h3 className="text-2xl font-semibold text-white">Share your own bull or bear take</h3>
-              <p className="mt-2 max-w-2xl text-sm text-stone-300">
-                Posts require an email account. Anonymous visitors can still upvote or downvote each post once, using IP-based limits when they are not logged in.
-              </p>
+              <p className="text-[11px] uppercase tracking-[0.28em] text-stone-500">Community Posting</p>
+              <h3 className="mt-1 text-lg font-semibold text-white">Share your own bull or bear take</h3>
             </div>
-            {!user && (
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => openAuthModal('register')}
-                  className="rounded-full bg-amber-300 px-4 py-2 text-sm font-medium text-stone-950 hover:bg-amber-200"
-                >
-                  Create account to post
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openAuthModal('login')}
-                  className="rounded-full border border-white/10 px-4 py-2 text-sm font-medium text-white hover:border-white/20 hover:bg-white/5"
-                >
-                  Log in
-                </button>
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={toggleComposer}
+              className="rounded-full border border-amber-400/30 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-200 hover:bg-amber-500/20"
+            >
+              {isComposerOpen ? 'Close post form' : user ? 'Write a take' : 'Open post options'}
+            </button>
           </div>
 
-          {user ? (
-            <form className="space-y-4" onSubmit={handleCreatePost}>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-[180px_1fr]">
-                <label className="text-sm text-stone-300">
-                  Side
-                  <select
-                    value={postStance}
-                    onChange={event => setPostStance(event.target.value as 'bull' | 'bear')}
-                    className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white"
-                  >
-                    <option value="bull" className="text-gray-900">Bull</option>
-                    <option value="bear" className="text-gray-900">Bear</option>
-                  </select>
-                </label>
+          {isComposerOpen && (
+            <div className="mt-4 border-t border-white/10 pt-4">
+              {user ? (
+                <form className="space-y-4" onSubmit={handleCreatePost}>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-[180px_1fr]">
+                    <label className="text-sm text-stone-300">
+                      Side
+                      <select
+                        value={postStance}
+                        onChange={event => setPostStance(event.target.value as 'bull' | 'bear')}
+                        className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white"
+                      >
+                        <option value="bull" className="text-gray-900">Bull</option>
+                        <option value="bear" className="text-gray-900">Bear</option>
+                      </select>
+                    </label>
 
-                <label className="text-sm text-stone-300">
-                  Title
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={event => setTitle(event.target.value)}
-                    maxLength={120}
-                    placeholder={`Example: Why ${tickerFilter || 'this stock'} still has upside`}
-                    className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-amber-400"
-                    required
-                  />
-                </label>
-              </div>
+                    <label className="text-sm text-stone-300">
+                      Title
+                      <input
+                        type="text"
+                        value={title}
+                        onChange={event => setTitle(event.target.value)}
+                        maxLength={120}
+                        placeholder={`Example: Why ${tickerFilter || 'this stock'} still has upside`}
+                        className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-amber-400"
+                        required
+                      />
+                    </label>
+                  </div>
 
-              <label className="block text-sm text-stone-300">
-                Your take
-                <textarea
-                  value={summary}
-                  onChange={event => setSummary(event.target.value)}
-                  maxLength={1700}
-                  rows={6}
-                  placeholder="Make the case clearly and directly. Keep it under 1,700 characters."
-                  className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-amber-400"
-                  required
-                />
-              </label>
+                  <label className="block text-sm text-stone-300">
+                    Your take
+                    <textarea
+                      value={summary}
+                      onChange={event => setSummary(event.target.value)}
+                      maxLength={1700}
+                      rows={5}
+                      placeholder="Make the case clearly and directly. Keep it under 1,700 characters."
+                      className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-amber-400"
+                      required
+                    />
+                  </label>
 
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-xs text-stone-500">
-                  {remainingCharacters} characters remaining. One account per email.
-                </div>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || remainingCharacters < 0 || !tickerFilter}
-                  className="rounded-full bg-amber-300 px-5 py-2.5 text-sm font-medium text-stone-950 hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {isSubmitting ? 'Publishing...' : `Post to ${postStance === 'bull' ? 'Bull' : 'Bear'} side`}
-                </button>
-              </div>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-xs text-stone-500">
+                      {remainingCharacters} characters remaining. One account per email.
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || remainingCharacters < 0 || !tickerFilter}
+                      className="rounded-full bg-amber-300 px-5 py-2.5 text-sm font-medium text-stone-950 hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {isSubmitting ? 'Publishing...' : `Post to ${postStance === 'bull' ? 'Bull' : 'Bear'} side`}
+                    </button>
+                  </div>
 
-              {postError && (
-                <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-                  {postError}
+                  {postError && (
+                    <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                      {postError}
+                    </div>
+                  )}
+                </form>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-white/10 px-4 py-4 text-sm text-stone-400">
+                  <span>Create an account to publish a bull or bear post. Voting stays available even without logging in.</span>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openAuthModal('register')}
+                      className="rounded-full bg-amber-300 px-4 py-2 text-sm font-medium text-stone-950 hover:bg-amber-200"
+                    >
+                      Create account
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openAuthModal('login')}
+                      className="rounded-full border border-white/10 px-4 py-2 text-sm font-medium text-white hover:border-white/20 hover:bg-white/5"
+                    >
+                      Log in
+                    </button>
+                  </div>
                 </div>
               )}
-            </form>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-stone-400">
-              Log in or create an account to publish a bull or bear post. Voting stays available even without logging in.
             </div>
           )}
         </section>
 
         {voteError && (
-          <div className="mb-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+          <div className="mb-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
             {voteError}
           </div>
         )}
@@ -395,7 +408,7 @@ export default function BearVsBullPage() {
                 <p className="text-xs uppercase tracking-[0.3em] text-emerald-300/70 mb-2">Bull</p>
                 <h3 className="text-2xl font-semibold text-emerald-200">Why investors are optimistic</h3>
               </div>
-              <div className="p-5 space-y-4">
+              <div className="p-5 space-y-3">
                 {data?.bull_arguments.length ? data.bull_arguments.map(argument => (
                   <ArgumentCard
                     key={`${argument.entry_type}-${argument.id}`}
@@ -417,7 +430,7 @@ export default function BearVsBullPage() {
                 <p className="text-xs uppercase tracking-[0.3em] text-rose-300/70 mb-2">Bear</p>
                 <h3 className="text-2xl font-semibold text-rose-200">What could go wrong</h3>
               </div>
-              <div className="p-5 space-y-4">
+              <div className="p-5 space-y-3">
                 {data?.bear_arguments.length ? data.bear_arguments.map(argument => (
                   <ArgumentCard
                     key={`${argument.entry_type}-${argument.id}`}
