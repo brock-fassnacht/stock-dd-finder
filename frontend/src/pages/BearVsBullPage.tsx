@@ -62,32 +62,43 @@ function ArgumentCard({
   const linkTone = tone === 'bull' ? 'text-emerald-300 hover:text-emerald-200' : 'text-rose-300 hover:text-rose-200'
 
   return (
-    <article className={`rounded-2xl border ${borderTone} bg-white/5 p-3 h-[180px] flex flex-col`}>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${sourceToneClass(argument.source_type)}`}>
-            {prettySourceType(argument.source_type)}
-          </span>
-          {argument.is_user_generated && (
-            <span className="inline-flex items-center rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-200">
-              Member post
+    <article className={`rounded-2xl border ${borderTone} bg-white/5 p-3 h-[190px] flex flex-col`}>
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className={`shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${sourceToneClass(argument.source_type)}`}>
+              {prettySourceType(argument.source_type)}
             </span>
-          )}
+            {argument.is_user_generated && (
+              <span className="shrink-0 inline-flex items-center rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-200">
+                Member post
+              </span>
+            )}
+            <h4 className="min-w-0 truncate text-sm font-semibold text-white">{argument.title}</h4>
+          </div>
         </div>
-        <span className="text-[11px] text-stone-400">
+        <span className="shrink-0 text-[11px] text-stone-400">
           {new Date(argument.as_of_date).toLocaleDateString()}
         </span>
       </div>
 
-      <h4 className="text-base font-semibold text-white mb-1.5 leading-tight">{argument.title}</h4>
-
-      <div className="mb-2 flex-1 overflow-y-auto pr-1">
-        <p className="text-xs leading-5 text-stone-300 whitespace-pre-wrap">{argument.summary}</p>
+      <div className="mb-3 flex-1 overflow-hidden">
+        <p
+          className="text-sm leading-6 text-stone-200 whitespace-pre-wrap"
+          style={{
+            display: '-webkit-box',
+            WebkitLineClamp: 5,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {argument.summary}
+        </p>
       </div>
 
       <div className="mt-auto space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-          <span className="text-stone-400 truncate max-w-[70%]">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-400">
+          <span className="truncate max-w-[62%]">
             {argument.source_name}{argument.author_handle ? ` - ${argument.author_handle}` : ''}
           </span>
           {argument.url && (
@@ -286,23 +297,24 @@ export default function BearVsBullPage() {
           </div>
         </section>
 
-        <section className="mb-4 rounded-3xl border border-white/10 bg-white/[0.03] px-4 py-3 sm:px-5">
+        <section className="mb-4 rounded-3xl border border-amber-300/30 bg-gradient-to-r from-amber-500/16 via-orange-500/10 to-rose-500/10 px-4 py-3 shadow-lg shadow-amber-950/20 sm:px-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.28em] text-stone-500">Community Posting</p>
-              <h3 className="mt-1 text-lg font-semibold text-white">Share your own bull or bear take</h3>
+              <p className="text-[11px] uppercase tracking-[0.28em] text-amber-200/70">Community Posting</p>
+              <h3 className="mt-1 text-xl font-semibold text-white">Share your own bull or bear take</h3>
+              <p className="mt-1 text-sm text-amber-50/80">Add your case to the board without crowding out the analyst takes.</p>
             </div>
             <button
               type="button"
               onClick={toggleComposer}
-              className="rounded-full border border-amber-400/30 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-200 hover:bg-amber-500/20"
+              className="rounded-full border border-amber-200/40 bg-amber-200/15 px-4 py-2 text-sm font-medium text-amber-50 hover:bg-amber-200/25"
             >
               {isComposerOpen ? 'Close post form' : user ? 'Write a take' : 'Open post options'}
             </button>
           </div>
 
           {isComposerOpen && (
-            <div className="mt-4 border-t border-white/10 pt-4">
+            <div className="mt-4 rounded-2xl border border-white/10 bg-stone-950/40 p-4">
               {user ? (
                 <form className="space-y-4" onSubmit={handleCreatePost}>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-[180px_1fr]">
@@ -365,7 +377,7 @@ export default function BearVsBullPage() {
                   )}
                 </form>
               ) : (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-white/10 px-4 py-4 text-sm text-stone-400">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-white/10 px-4 py-4 text-sm text-stone-300">
                   <span>Create an account to publish a bull or bear post. Voting stays available even without logging in.</span>
                   <div className="flex flex-wrap gap-2">
                     <button
