@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { useBearVsBull, useCompanies } from '../hooks'
+import { createBearVsBullPost, voteBearVsBull } from '../api'
+import type { BearVsBullArgument } from '../api'
+import { useAuth } from '../auth/AuthContext'
 import { Loading } from '../components'
+import { AuthButton } from '../components/AuthButton'
+import { useBearVsBull, useCompanies } from '../hooks'
 
 function sourceToneClass(sourceType: string) {
   switch (sourceType) {
@@ -11,6 +16,8 @@ function sourceToneClass(sourceType: string) {
       return 'bg-sky-50 text-sky-700 border-sky-200'
     case 'seeking_alpha':
       return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    case 'community':
+      return 'bg-amber-50 text-amber-700 border-amber-200'
     default:
       return 'bg-gray-100 text-gray-700 border-gray-200'
   }
@@ -22,14 +29,121 @@ function prettySourceType(sourceType: string) {
       return 'X'
     case 'seeking_alpha':
       return 'Seeking Alpha'
+    case 'community':
+      return 'Community'
     default:
       return sourceType.charAt(0).toUpperCase() + sourceType.slice(1)
   }
 }
 
+function voteButtonClasses(direction: 'up' | 'down', disabled: boolean) {
+  const base = 'rounded-full border px-3 py-1.5 text-xs font-medium transition'
+  if (disabled) {
+    return `${base} cursor-not-allowed border-white/10 bg-white/5 text-stone-500`
+  }
+  return direction === 'up'
+    ? `${base} border-emerald-400/20 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20`
+    : `${base} border-rose-400/20 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20`
+}
+
+function ArgumentCard({
+  argument,
+  tone,
+  onVote,
+  votingKey,
+}: {
+  argument: BearVsBullArgument
+  tone: 'bull' | 'bear'
+  onVote: (direction: 'up' | 'down') => void
+  votingKey: string | null
+}) {
+  const isVoting = votingKey === `${argument.entry_type}-${argument.id}`
+  const borderTone = tone === 'bull' ? 'border-emerald-500/20' : 'border-rose-500/20'
+  const linkTone = tone === 'bull' ? 'text-emerald-300 hover:text-emerald-200' : 'text-rose-300 hover:text-rose-200'
+
+  return (
+    <article className={`rounded-2xl border ${borderTone} bg-white/5 p-4 h-[320px] flex flex-col`}>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${sourceToneClass(argument.source_type)}`}>
+            {prettySourceType(argument.source_type)}
+          </span>
+          {argument.is_user_generated && (
+            <span className="inline-flex items-center rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-200">
+              Member post
+            </span>
+          )}
+        </div>
+        <span className="text-xs text-stone-400">
+          {new Date(argument.as_of_date).toLocaleDateString()}
+        </span>
+      </div>
+
+      <h4 className="text-lg font-semibold text-white mb-2 leading-tight">{argument.title}</h4>
+
+      <div className="mb-4 flex-1 overflow-y-auto pr-1">
+        <p className="text-sm text-stone-300 whitespace-pre-wrap">{argument.summary}</p>
+      </div>
+
+      <div className="mt-auto space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+          <span className="text-stone-400">
+            {argument.source_name}{argument.author_handle ? ` - ${argument.author_handle}` : ''}
+          </span>
+          {argument.url && (
+            <a
+              href={argument.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={linkTone}
+            >
+              Open source
+            </a>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+          <div className="flex items-center gap-2 text-xs text-stone-400">
+            <span>Score {argument.vote_score > 0 ? `+${argument.vote_score}` : argument.vote_score}</span>
+            <span>{argument.upvotes} up</span>
+            <span>{argument.downvotes} down</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={argument.has_voted || isVoting}
+              onClick={() => onVote('up')}
+              className={voteButtonClasses('up', argument.has_voted || isVoting)}
+            >
+              {isVoting ? '...' : 'Upvote'}
+            </button>
+            <button
+              type="button"
+              disabled={argument.has_voted || isVoting}
+              onClick={() => onVote('down')}
+              className={voteButtonClasses('down', argument.has_voted || isVoting)}
+            >
+              {isVoting ? '...' : 'Downvote'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+  )
+}
+
 export default function BearVsBullPage() {
   const { data: companies } = useCompanies()
+  const { user, openAuthModal } = useAuth()
+  const queryClient = useQueryClient()
   const [tickerFilter, setTickerFilter] = useState('')
+  const [postStance, setPostStance] = useState<'bull' | 'bear'>('bull')
+  const [title, setTitle] = useState('')
+  const [summary, setSummary] = useState('')
+  const [postError, setPostError] = useState<string | null>(null)
+  const [voteError, setVoteError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [votingKey, setVotingKey] = useState<string | null>(null)
 
   useEffect(() => {
     if (!tickerFilter && companies?.length) {
@@ -43,11 +157,54 @@ export default function BearVsBullPage() {
 
   const bullCount = data?.bull_arguments.length ?? 0
   const bearCount = data?.bear_arguments.length ?? 0
+  const communityCount = useMemo(() => {
+    if (!data) return 0
+    return [...data.bull_arguments, ...data.bear_arguments].filter(item => item.is_user_generated).length
+  }, [data])
 
   const sourceList = useMemo(() => {
     const items = data ? [...data.bull_arguments, ...data.bear_arguments] : []
     return Array.from(new Set(items.map(item => prettySourceType(item.source_type))))
   }, [data])
+
+  const remainingCharacters = 1700 - summary.length
+
+  async function handleCreatePost(event: React.FormEvent) {
+    event.preventDefault()
+    if (!tickerFilter) return
+
+    setPostError(null)
+    setIsSubmitting(true)
+    try {
+      await createBearVsBullPost({
+        ticker: tickerFilter,
+        stance: postStance,
+        title: title.trim(),
+        summary: summary.trim(),
+      })
+      setTitle('')
+      setSummary('')
+      await queryClient.invalidateQueries({ queryKey: ['bearVsBull'] })
+    } catch (err) {
+      setPostError(err instanceof Error ? err.message : 'Failed to publish post')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleVote(argument: BearVsBullArgument, direction: 'up' | 'down') {
+    setVoteError(null)
+    const key = `${argument.entry_type}-${argument.id}`
+    setVotingKey(key)
+    try {
+      await voteBearVsBull(argument.entry_type, argument.id, direction)
+      await queryClient.invalidateQueries({ queryKey: ['bearVsBull'] })
+    } catch (err) {
+      setVoteError(err instanceof Error ? err.message : 'Voting failed')
+    } finally {
+      setVotingKey(null)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-stone-950 text-white flex flex-col">
@@ -67,7 +224,7 @@ export default function BearVsBullPage() {
             <h1 className="text-base sm:text-xl font-bold">Bear vs Bull</h1>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <label className="text-sm text-stone-300" htmlFor="ticker-filter">
               Stock
             </label>
@@ -83,6 +240,7 @@ export default function BearVsBullPage() {
                 </option>
               ))}
             </select>
+            <AuthButton variant="dark" />
           </div>
         </div>
       </header>
@@ -96,7 +254,7 @@ export default function BearVsBullPage() {
                 {tickerFilter || 'Select a stock'} market debate
               </h2>
               <p className="text-stone-300 max-w-2xl">
-                Compare bullish and bearish arguments side by side. The data model is set up to ingest structured takes from sources like X, Reddit, and Seeking Alpha.
+                Compare bullish and bearish arguments side by side, add your own post with an account, and let visitors vote once on each take.
               </p>
             </div>
 
@@ -109,6 +267,10 @@ export default function BearVsBullPage() {
                 <div className="text-stone-400">Bear arguments</div>
                 <div className="text-2xl font-semibold text-rose-300">{bearCount}</div>
               </div>
+              <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3">
+                <div className="text-stone-400">Member posts</div>
+                <div className="text-2xl font-semibold text-amber-200">{communityCount}</div>
+              </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-stone-400">Sources tracked</div>
                 <div className="text-lg font-semibold text-white">{sourceList.join(', ') || 'None yet'}</div>
@@ -116,6 +278,109 @@ export default function BearVsBullPage() {
             </div>
           </div>
         </section>
+
+        <section className="mb-6 rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-stone-500 mb-2">Community Posting</p>
+              <h3 className="text-2xl font-semibold text-white">Share your own bull or bear take</h3>
+              <p className="mt-2 max-w-2xl text-sm text-stone-300">
+                Posts require an email account. Anonymous visitors can still upvote or downvote each post once, using IP-based limits when they are not logged in.
+              </p>
+            </div>
+            {!user && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => openAuthModal('register')}
+                  className="rounded-full bg-amber-300 px-4 py-2 text-sm font-medium text-stone-950 hover:bg-amber-200"
+                >
+                  Create account to post
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openAuthModal('login')}
+                  className="rounded-full border border-white/10 px-4 py-2 text-sm font-medium text-white hover:border-white/20 hover:bg-white/5"
+                >
+                  Log in
+                </button>
+              </div>
+            )}
+          </div>
+
+          {user ? (
+            <form className="space-y-4" onSubmit={handleCreatePost}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-[180px_1fr]">
+                <label className="text-sm text-stone-300">
+                  Side
+                  <select
+                    value={postStance}
+                    onChange={event => setPostStance(event.target.value as 'bull' | 'bear')}
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white"
+                  >
+                    <option value="bull" className="text-gray-900">Bull</option>
+                    <option value="bear" className="text-gray-900">Bear</option>
+                  </select>
+                </label>
+
+                <label className="text-sm text-stone-300">
+                  Title
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={event => setTitle(event.target.value)}
+                    maxLength={120}
+                    placeholder={`Example: Why ${tickerFilter || 'this stock'} still has upside`}
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-amber-400"
+                    required
+                  />
+                </label>
+              </div>
+
+              <label className="block text-sm text-stone-300">
+                Your take
+                <textarea
+                  value={summary}
+                  onChange={event => setSummary(event.target.value)}
+                  maxLength={1700}
+                  rows={6}
+                  placeholder="Make the case clearly and directly. Keep it under 1,700 characters."
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-amber-400"
+                  required
+                />
+              </label>
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs text-stone-500">
+                  {remainingCharacters} characters remaining. One account per email.
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || remainingCharacters < 0 || !tickerFilter}
+                  className="rounded-full bg-amber-300 px-5 py-2.5 text-sm font-medium text-stone-950 hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSubmitting ? 'Publishing...' : `Post to ${postStance === 'bull' ? 'Bull' : 'Bear'} side`}
+                </button>
+              </div>
+
+              {postError && (
+                <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                  {postError}
+                </div>
+              )}
+            </form>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-stone-400">
+              Log in or create an account to publish a bull or bear post. Voting stays available even without logging in.
+            </div>
+          )}
+        </section>
+
+        {voteError && (
+          <div className="mb-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            {voteError}
+          </div>
+        )}
 
         {isLoading ? (
           <Loading />
@@ -132,33 +397,13 @@ export default function BearVsBullPage() {
               </div>
               <div className="p-5 space-y-4">
                 {data?.bull_arguments.length ? data.bull_arguments.map(argument => (
-                  <article key={argument.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                      <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${sourceToneClass(argument.source_type)}`}>
-                        {prettySourceType(argument.source_type)}
-                      </span>
-                      <span className="text-xs text-stone-400">
-                        {new Date(argument.as_of_date).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <h4 className="text-lg font-semibold text-white mb-2">{argument.title}</h4>
-                    <p className="text-sm text-stone-300 mb-4">{argument.summary}</p>
-                    <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                      <span className="text-stone-400">
-                        {argument.source_name}{argument.author_handle ? ` - ${argument.author_handle}` : ''}
-                      </span>
-                      {argument.url && (
-                        <a
-                          href={argument.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-emerald-300 hover:text-emerald-200"
-                        >
-                          Open source
-                        </a>
-                      )}
-                    </div>
-                  </article>
+                  <ArgumentCard
+                    key={`${argument.entry_type}-${argument.id}`}
+                    argument={argument}
+                    tone="bull"
+                    votingKey={votingKey}
+                    onVote={direction => void handleVote(argument, direction)}
+                  />
                 )) : (
                   <div className="rounded-2xl border border-dashed border-white/10 px-4 py-12 text-center text-stone-400">
                     No bullish arguments are stored for this ticker yet.
@@ -174,33 +419,13 @@ export default function BearVsBullPage() {
               </div>
               <div className="p-5 space-y-4">
                 {data?.bear_arguments.length ? data.bear_arguments.map(argument => (
-                  <article key={argument.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                      <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${sourceToneClass(argument.source_type)}`}>
-                        {prettySourceType(argument.source_type)}
-                      </span>
-                      <span className="text-xs text-stone-400">
-                        {new Date(argument.as_of_date).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <h4 className="text-lg font-semibold text-white mb-2">{argument.title}</h4>
-                    <p className="text-sm text-stone-300 mb-4">{argument.summary}</p>
-                    <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                      <span className="text-stone-400">
-                        {argument.source_name}{argument.author_handle ? ` - ${argument.author_handle}` : ''}
-                      </span>
-                      {argument.url && (
-                        <a
-                          href={argument.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-rose-300 hover:text-rose-200"
-                        >
-                          Open source
-                        </a>
-                      )}
-                    </div>
-                  </article>
+                  <ArgumentCard
+                    key={`${argument.entry_type}-${argument.id}`}
+                    argument={argument}
+                    tone="bear"
+                    votingKey={votingKey}
+                    onVote={direction => void handleVote(argument, direction)}
+                  />
                 )) : (
                   <div className="rounded-2xl border border-dashed border-white/10 px-4 py-12 text-center text-stone-400">
                     No bearish arguments are stored for this ticker yet.
@@ -213,7 +438,7 @@ export default function BearVsBullPage() {
       </main>
 
       <footer className="border-t border-white/10 px-4 py-3 text-center text-xs text-stone-500">
-        Source ingestion is scaffolded for structured external takes. Verify every claim before making investment decisions.
+        Community posts are user-submitted and votes are limited to one per post. Verify every claim before making investment decisions.
       </footer>
     </div>
   )

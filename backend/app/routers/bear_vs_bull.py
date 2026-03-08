@@ -1,56 +1,89 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import BearVsBullArgument, Company
-from ..schemas import BearVsBullResponse
-from ..services.bear_vs_bull import ensure_seed_data
+from ..models import User
+from ..schemas import BearVsBullArgumentResponse, BearVsBullCreateRequest, BearVsBullResponse, BearVsBullVoteRequest
+from ..services.auth import build_member_label, get_optional_current_user, require_current_user
+from ..services.bear_vs_bull import (
+    build_bear_vs_bull_response,
+    create_community_post,
+    create_vote,
+    get_anonymous_voter_hash,
+    get_request_ip_hash,
+)
 
 router = APIRouter(prefix="/api/bear-vs-bull", tags=["bear-vs-bull"])
 
 
 @router.get("/", response_model=BearVsBullResponse)
 def get_bear_vs_bull(
+    request: Request,
     ticker: str | None = Query(None),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
-    ensure_seed_data(db)
+    return build_bear_vs_bull_response(
+        db=db,
+        ticker=ticker,
+        current_user=current_user,
+        anonymous_voter_hash=get_anonymous_voter_hash(request),
+        ip_hash=get_request_ip_hash(request),
+    )
 
-    query = db.query(BearVsBullArgument).join(Company)
-    if ticker:
-        query = query.filter(Company.ticker == ticker.upper())
 
-    arguments = query.order_by(
-        Company.ticker.asc(),
-        BearVsBullArgument.stance.asc(),
-        BearVsBullArgument.as_of_date.desc(),
-    ).all()
-
-    bull_arguments = []
-    bear_arguments = []
-
-    for argument in arguments:
-        item = {
-            "id": argument.id,
-            "ticker": argument.company.ticker,
-            "company_name": argument.company.name,
-            "stance": argument.stance,
-            "source_type": argument.source_type,
-            "source_name": argument.source_name,
-            "author_handle": argument.author_handle,
-            "title": argument.title,
-            "summary": argument.summary,
-            "url": argument.url,
-            "as_of_date": argument.as_of_date,
-            "confidence_score": argument.confidence_score,
-        }
-        if argument.stance == "bull":
-            bull_arguments.append(item)
-        else:
-            bear_arguments.append(item)
-
+@router.post("/posts", response_model=BearVsBullArgumentResponse)
+def create_bear_vs_bull_post(
+    payload: BearVsBullCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_current_user),
+):
+    post = create_community_post(
+        db=db,
+        ticker=payload.ticker,
+        stance=payload.stance,
+        title=payload.title,
+        summary=payload.summary,
+        user=current_user,
+    )
     return {
-        "ticker": ticker.upper() if ticker else None,
-        "bull_arguments": bull_arguments,
-        "bear_arguments": bear_arguments,
+        "id": post.id,
+        "entry_type": "post",
+        "ticker": post.company.ticker,
+        "company_name": post.company.name,
+        "stance": post.stance,
+        "source_type": "community",
+        "source_name": "TickerClaw member",
+        "author_handle": build_member_label(current_user.id),
+        "title": post.title,
+        "summary": post.summary,
+        "url": None,
+        "as_of_date": post.created_at.date(),
+        "confidence_score": None,
+        "vote_score": 0,
+        "upvotes": 0,
+        "downvotes": 0,
+        "has_voted": False,
+        "is_user_generated": True,
     }
+
+
+@router.post("/{target_type}/{target_id}/vote")
+def vote_on_bear_vs_bull(
+    target_type: str,
+    target_id: int,
+    payload: BearVsBullVoteRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    create_vote(
+        db=db,
+        target_type=target_type,
+        target_id=target_id,
+        direction=payload.direction,
+        current_user=current_user,
+        anonymous_voter_hash=get_anonymous_voter_hash(request),
+        ip_hash=get_request_ip_hash(request),
+    )
+    return {"success": True}

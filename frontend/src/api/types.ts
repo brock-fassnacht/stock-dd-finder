@@ -75,8 +75,21 @@ export interface ExecCompEntry {
   document_url: string | null
 }
 
+export interface User {
+  id: number
+  email: string
+  member_label: string
+  created_at: string
+}
+
+export interface AuthSessionResponse {
+  token: string
+  user: User
+}
+
 export interface BearVsBullArgument {
   id: number
+  entry_type: 'argument' | 'post'
   ticker: string
   company_name: string
   stance: 'bull' | 'bear'
@@ -88,6 +101,11 @@ export interface BearVsBullArgument {
   url: string | null
   as_of_date: string
   confidence_score: number | null
+  vote_score: number
+  upvotes: number
+  downvotes: number
+  has_voted: boolean
+  is_user_generated: boolean
 }
 
 export interface BearVsBullResponse {

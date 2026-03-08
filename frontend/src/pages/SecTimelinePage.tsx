@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useTimeline, useCompanies, usePrices, useTickerSearch } from '../hooks'
 import { Timeline, Loading, ErrorMessage, StockChart, AdminPanel } from '../components'
+import { AuthButton } from '../components/AuthButton'
 import { logInterest, verifyAdmin } from '../api'
 import type { TimelineEvent, TickerSearchResult } from '../api/types'
 
@@ -270,6 +271,7 @@ export default function SecTimelinePage() {
               )}
             </div>
 
+            <AuthButton />
           </div>
         </div>
       </header>
@@ -428,3 +430,4 @@ export default function SecTimelinePage() {
     </div>
   )
 }
+

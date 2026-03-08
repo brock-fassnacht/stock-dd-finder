@@ -16,3 +16,4 @@ class Company(Base):
     filings = relationship("Filing", back_populates="company")
     press_releases = relationship("PressRelease", back_populates="company")
     bear_vs_bull_arguments = relationship("BearVsBullArgument", back_populates="company")
+    bear_vs_bull_posts = relationship("BearVsBullPost", back_populates="company")

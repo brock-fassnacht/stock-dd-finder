@@ -1,13 +1,19 @@
 import type {
+  AuthSessionResponse,
+  BearVsBullArgument,
   BearVsBullResponse,
   Company,
-  TimelineResponse,
+  ExecCompEntry,
   Filing,
   PriceResponse,
-  TickerSearchResult,
   SyncStatus,
-  ExecCompEntry,
+  TickerSearchResult,
+  TimelineResponse,
+  User,
 } from './types'
+
+const AUTH_TOKEN_KEY = 'tickerclaw_auth_token'
+const ANONYMOUS_VOTER_KEY = 'tickerclaw_anonymous_voter_id'
 
 function getApiBase(): string {
   if (import.meta.env.VITE_API_BASE_URL) {
@@ -24,18 +30,66 @@ function getApiBase(): string {
 
 const API_BASE = getApiBase()
 
+function createAnonymousVoterId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+  return `anon-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`
+}
+
+export function getStoredAuthToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return window.localStorage.getItem(AUTH_TOKEN_KEY)
+}
+
+export function setStoredAuthToken(token: string | null) {
+  if (typeof window === 'undefined') return
+  if (token) {
+    window.localStorage.setItem(AUTH_TOKEN_KEY, token)
+  } else {
+    window.localStorage.removeItem(AUTH_TOKEN_KEY)
+  }
+}
+
+export function getAnonymousVoterId(): string | null {
+  if (typeof window === 'undefined') return null
+
+  const existing = window.localStorage.getItem(ANONYMOUS_VOTER_KEY)
+  if (existing) {
+    return existing
+  }
+
+  const created = createAnonymousVoterId()
+  window.localStorage.setItem(ANONYMOUS_VOTER_KEY, created)
+  return created
+}
+
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+  const token = getStoredAuthToken()
+  const anonymousVoterId = getAnonymousVoterId()
+  const headers = new Headers(options?.headers)
+  if (!headers.has('Content-Type') && options?.body) {
+    headers.set('Content-Type', 'application/json')
+  }
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+  if (anonymousVoterId && !headers.has('X-Anonymous-Voter-Id')) {
+    headers.set('X-Anonymous-Voter-Id', anonymousVoterId)
+  }
+
   const response = await fetch(`${API_BASE}${url}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
+    headers,
   })
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Request failed' }))
     throw new Error(error.detail || 'Request failed')
+  }
+
+  if (response.status === 204) {
+    return undefined as T
   }
 
   return response.json()
@@ -139,6 +193,51 @@ export async function getBearVsBull(params?: {
   if (params?.ticker) searchParams.set('ticker', params.ticker)
   const query = searchParams.toString()
   return fetchJson(`/bear-vs-bull/${query ? `?${query}` : ''}`)
+}
+
+export async function createBearVsBullPost(payload: {
+  ticker: string
+  stance: 'bull' | 'bear'
+  title: string
+  summary: string
+}): Promise<BearVsBullArgument> {
+  return fetchJson('/bear-vs-bull/posts', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function voteBearVsBull(
+  targetType: 'argument' | 'post',
+  targetId: number,
+  direction: 'up' | 'down'
+): Promise<{ success: boolean }> {
+  return fetchJson(`/bear-vs-bull/${targetType}/${targetId}/vote`, {
+    method: 'POST',
+    body: JSON.stringify({ direction }),
+  })
+}
+
+export async function registerUser(payload: { email: string; password: string }): Promise<AuthSessionResponse> {
+  return fetchJson('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function loginUser(payload: { email: string; password: string }): Promise<AuthSessionResponse> {
+  return fetchJson('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function getCurrentUser(): Promise<User> {
+  return fetchJson('/auth/me')
+}
+
+export async function logoutUser(): Promise<void> {
+  return fetchJson('/auth/logout', { method: 'POST' })
 }
 
 export async function getPrices(

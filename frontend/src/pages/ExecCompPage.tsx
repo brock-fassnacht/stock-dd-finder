@@ -2,13 +2,14 @@ import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useExecComp, useCompanies } from '../hooks'
 import { Loading } from '../components'
+import { AuthButton } from '../components/AuthButton'
 import type { ExecCompEntry } from '../api/types'
 
 const ROLE_FILTERS = ['CEO', 'CFO', 'COO', 'CLO', 'CTO', 'Other'] as const
 type RoleFilter = typeof ROLE_FILTERS[number]
 
 function formatDollars(value: number | null): string {
-  if (value == null) return '—'
+  if (value == null) return '-'
   return '$' + value.toLocaleString('en-US', { maximumFractionDigits: 0 })
 }
 
@@ -53,9 +54,8 @@ export default function ExecCompPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Link to="/" className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1.5">
               <svg className="w-5 h-5 text-red-500" viewBox="0 0 64 64" fill="currentColor">
@@ -70,8 +70,7 @@ export default function ExecCompPage() {
             <h1 className="text-base sm:text-xl font-bold text-gray-900">Executive Compensation</h1>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Company filter */}
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <select
               value={tickerFilter}
               onChange={e => setTickerFilter(e.target.value)}
@@ -83,7 +82,6 @@ export default function ExecCompPage() {
               ))}
             </select>
 
-            {/* Role filter */}
             <select
               value={roleFilter}
               onChange={e => setRoleFilter(e.target.value as RoleFilter | '')}
@@ -94,11 +92,12 @@ export default function ExecCompPage() {
                 <option key={role} value={role}>{role}</option>
               ))}
             </select>
+
+            <AuthButton />
           </div>
         </div>
       </header>
 
-      {/* Main content */}
       <main className="flex-1 p-4 sm:p-6">
         {isLoading ? (
           <Loading />
@@ -134,7 +133,7 @@ export default function ExecCompPage() {
                       <span className="text-xs text-gray-500 ml-2 hidden sm:inline">{entry.company_name}</span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">{entry.executive_name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{entry.position || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{entry.position || '-'}</td>
                     <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
                       {entry.document_url ? (
                         <a
@@ -161,7 +160,6 @@ export default function ExecCompPage() {
         )}
       </main>
 
-      {/* Footer */}
       <footer className="bg-white border-t px-4 py-2 text-center text-xs text-gray-400">
         Data extracted by AI from SEC DEF 14A proxy filings. Verify with original documents.
       </footer>

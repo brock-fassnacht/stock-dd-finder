@@ -7,7 +7,7 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from .database import engine, Base
-from .routers import companies_router, filings_router, prices_router, exec_comp_router, bear_vs_bull_router
+from .routers import auth_router, companies_router, filings_router, prices_router, exec_comp_router, bear_vs_bull_router
 from .config import get_settings
 from .services.sync import sync_all_companies
 
@@ -98,6 +98,7 @@ app.include_router(filings_router)
 app.include_router(prices_router)
 app.include_router(exec_comp_router)
 app.include_router(bear_vs_bull_router)
+app.include_router(auth_router)
 
 
 @app.get("/")

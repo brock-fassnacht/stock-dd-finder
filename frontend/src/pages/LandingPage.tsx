@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom'
+import { AuthButton } from '../components/AuthButton'
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       <header className="px-6 py-5">
-        <div className="max-w-6xl mx-auto">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <svg className="w-8 h-8 text-red-500" viewBox="0 0 64 64" fill="currentColor">
               <path d="M12 48c0-4 2-12 6-18l-8-14c-1-2 0-4 2-4h4l6 10c4-4 9-7 14-8V6c0-2 2-4 4-2l2 4v8c5 1 10 4 14 8l6-10h4c2 0 3 2 2 4l-8 14c4 6 6 14 6 18" />
@@ -14,6 +15,7 @@ export default function LandingPage() {
             </svg>
             TickerClaw
           </h1>
+          <AuthButton variant="dark" />
         </div>
       </header>
 
@@ -36,6 +38,9 @@ export default function LandingPage() {
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-gray-300">
                   Built to make stock research faster and easier to explain.
+                </div>
+                <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-5 py-4 text-amber-100">
+                  Create an account to publish your own bull or bear take. Voting stays open to everyone.
                 </div>
               </div>
             </div>
@@ -63,7 +68,7 @@ export default function LandingPage() {
                     "if you can't explain to a ten-year-old in two minutes or less why you own a stock, you shouldn't own it" - Peter Lynch
                   </blockquote>
                   <p className="text-base sm:text-lg text-gray-300 max-w-2xl">
-                    Pick any tracked stock and compare the strongest bullish and bearish takes side by side from market conversations and research sources.
+                    Pick any tracked stock, compare the strongest bullish and bearish takes side by side, and now let the community post their own cases too.
                   </p>
                 </div>
 
@@ -71,7 +76,8 @@ export default function LandingPage() {
                   <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10">Ticker filter</span>
                   <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10">Bull case</span>
                   <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10">Bear case</span>
-                  <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10">Source tracking</span>
+                  <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10">Community posts</span>
+                  <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10">One-time voting</span>
                 </div>
               </Link>
 
