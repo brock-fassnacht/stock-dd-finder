@@ -207,6 +207,12 @@ export async function createBearVsBullPost(payload: {
   })
 }
 
+export async function deleteBearVsBullPost(postId: number): Promise<{ success: boolean }> {
+  return fetchJson(`/bear-vs-bull/posts/${postId}`, {
+    method: 'DELETE',
+  })
+}
+
 export async function voteBearVsBull(
   targetType: 'argument' | 'post',
   targetId: number,

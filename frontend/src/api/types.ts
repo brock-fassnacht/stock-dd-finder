@@ -106,6 +106,7 @@ export interface BearVsBullArgument {
   downvotes: number
   has_voted: boolean
   is_user_generated: boolean
+  can_delete: boolean
 }
 
 export interface BearVsBullResponse {

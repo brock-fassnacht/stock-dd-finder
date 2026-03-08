@@ -9,6 +9,7 @@ from ..services.bear_vs_bull import (
     build_bear_vs_bull_response,
     create_community_post,
     create_vote,
+    delete_community_post,
     get_anonymous_voter_hash,
     get_request_ip_hash,
 )
@@ -65,7 +66,18 @@ def create_bear_vs_bull_post(
         "downvotes": 0,
         "has_voted": False,
         "is_user_generated": True,
+        "can_delete": True,
     }
+
+
+@router.delete("/posts/{post_id}")
+def delete_bear_vs_bull_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_current_user),
+):
+    delete_community_post(db=db, post_id=post_id, user=current_user)
+    return {"success": True}
 
 
 @router.post("/{target_type}/{target_id}/vote")

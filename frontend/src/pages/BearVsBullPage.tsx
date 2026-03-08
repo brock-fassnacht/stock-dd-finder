@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { createBearVsBullPost, voteBearVsBull } from '../api'
+import { createBearVsBullPost, deleteBearVsBullPost, voteBearVsBull } from '../api'
 import type { BearVsBullArgument } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { Loading } from '../components'
@@ -46,18 +46,30 @@ function voteButtonClasses(direction: 'up' | 'down', disabled: boolean) {
     : `${base} border-rose-400/20 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20`
 }
 
+function isCurrentCalendarMonth(value: string) {
+  const now = new Date()
+  const dateValue = new Date(value)
+  return now.getFullYear() === dateValue.getFullYear() && now.getMonth() === dateValue.getMonth()
+}
+
 function ArgumentCard({
   argument,
   tone,
+  onDelete,
   onVote,
+  deletingKey,
   votingKey,
 }: {
   argument: BearVsBullArgument
   tone: 'bull' | 'bear'
+  onDelete?: () => void
   onVote: (direction: 'up' | 'down') => void
+  deletingKey: string | null
   votingKey: string | null
 }) {
-  const isVoting = votingKey === `${argument.entry_type}-${argument.id}`
+  const cardKey = `${argument.entry_type}-${argument.id}`
+  const isDeleting = deletingKey === cardKey
+  const isVoting = votingKey === cardKey
   const borderTone = tone === 'bull' ? 'border-emerald-500/20' : 'border-rose-500/20'
   const linkTone = tone === 'bull' ? 'text-emerald-300 hover:text-emerald-200' : 'text-rose-300 hover:text-rose-200'
 
@@ -101,16 +113,28 @@ function ArgumentCard({
           <span className="truncate max-w-[62%]">
             {argument.source_name}{argument.author_handle ? ` - ${argument.author_handle}` : ''}
           </span>
-          {argument.url && (
-            <a
-              href={argument.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={linkTone}
-            >
-              Open source
-            </a>
-          )}
+          <div className="flex items-center gap-2">
+            {argument.url && (
+              <a
+                href={argument.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={linkTone}
+              >
+                Open source
+              </a>
+            )}
+            {argument.can_delete && onDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                disabled={isDeleting}
+                className="text-rose-300 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-2">
@@ -154,6 +178,7 @@ export default function BearVsBullPage() {
   const [postError, setPostError] = useState<string | null>(null)
   const [voteError, setVoteError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [deletingKey, setDeletingKey] = useState<string | null>(null)
   const [votingKey, setVotingKey] = useState<string | null>(null)
   const [isComposerOpen, setIsComposerOpen] = useState(false)
 
@@ -174,6 +199,21 @@ export default function BearVsBullPage() {
     return [...data.bull_arguments, ...data.bear_arguments].filter(item => item.is_user_generated).length
   }, [data])
 
+  const currentMonthOwnedPosts = useMemo(() => {
+    if (!data || !tickerFilter) return []
+    return [...data.bull_arguments, ...data.bear_arguments].filter(item => (
+      item.can_delete &&
+      item.ticker === tickerFilter &&
+      item.is_user_generated &&
+      isCurrentCalendarMonth(item.as_of_date)
+    ))
+  }, [data, tickerFilter])
+
+  const bullSlotUsed = currentMonthOwnedPosts.some(item => item.stance === 'bull')
+  const bearSlotUsed = currentMonthOwnedPosts.some(item => item.stance === 'bear')
+  const stanceSlotUsed = postStance === 'bull' ? bullSlotUsed : bearSlotUsed
+  const bothSlotsUsed = bullSlotUsed && bearSlotUsed
+
   const sourceList = useMemo(() => {
     const items = data ? [...data.bull_arguments, ...data.bear_arguments] : []
     return Array.from(new Set(items.map(item => prettySourceType(item.source_type))))
@@ -181,9 +221,18 @@ export default function BearVsBullPage() {
 
   const remainingCharacters = 1700 - summary.length
 
+  useEffect(() => {
+    if (postStance === 'bull' && bullSlotUsed && !bearSlotUsed) {
+      setPostStance('bear')
+    }
+    if (postStance === 'bear' && bearSlotUsed && !bullSlotUsed) {
+      setPostStance('bull')
+    }
+  }, [bearSlotUsed, bullSlotUsed, postStance])
+
   async function handleCreatePost(event: React.FormEvent) {
     event.preventDefault()
-    if (!tickerFilter) return
+    if (!tickerFilter || stanceSlotUsed) return
 
     setPostError(null)
     setIsSubmitting(true)
@@ -202,6 +251,25 @@ export default function BearVsBullPage() {
       setPostError(err instanceof Error ? err.message : 'Failed to publish post')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  async function handleDelete(argument: BearVsBullArgument) {
+    if (!argument.can_delete) return
+    if (!window.confirm('Delete this post? You can repost again for this stock and side this calendar month after deleting it.')) {
+      return
+    }
+
+    setPostError(null)
+    const key = `${argument.entry_type}-${argument.id}`
+    setDeletingKey(key)
+    try {
+      await deleteBearVsBullPost(argument.id)
+      await queryClient.invalidateQueries({ queryKey: ['bearVsBull'] })
+    } catch (err) {
+      setPostError(err instanceof Error ? err.message : 'Failed to delete post')
+    } finally {
+      setDeletingKey(null)
     }
   }
 
@@ -302,7 +370,7 @@ export default function BearVsBullPage() {
             <div>
               <p className="text-[11px] uppercase tracking-[0.28em] text-amber-200/70">Community Posting</p>
               <h3 className="mt-1 text-xl font-semibold text-white">Share your own bull or bear take</h3>
-              <p className="mt-1 text-sm text-amber-50/80">Add your case to the board without crowding out the analyst takes.</p>
+              <p className="mt-1 text-sm text-amber-50/80">One bull and one bear post per stock, per calendar month. Delete your own post to reopen that slot.</p>
             </div>
             <button
               type="button"
@@ -325,8 +393,8 @@ export default function BearVsBullPage() {
                         onChange={event => setPostStance(event.target.value as 'bull' | 'bear')}
                         className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white"
                       >
-                        <option value="bull" className="text-gray-900">Bull</option>
-                        <option value="bear" className="text-gray-900">Bear</option>
+                        <option value="bull" disabled={bullSlotUsed} className="text-gray-900">{bullSlotUsed ? 'Bull (used this month)' : 'Bull'}</option>
+                        <option value="bear" disabled={bearSlotUsed} className="text-gray-900">{bearSlotUsed ? 'Bear (used this month)' : 'Bear'}</option>
                       </select>
                     </label>
 
@@ -363,12 +431,24 @@ export default function BearVsBullPage() {
                     </div>
                     <button
                       type="submit"
-                      disabled={isSubmitting || remainingCharacters < 0 || !tickerFilter}
+                      disabled={isSubmitting || remainingCharacters < 0 || !tickerFilter || stanceSlotUsed || bothSlotsUsed}
                       className="rounded-full bg-amber-300 px-5 py-2.5 text-sm font-medium text-stone-950 hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       {isSubmitting ? 'Publishing...' : `Post to ${postStance === 'bull' ? 'Bull' : 'Bear'} side`}
                     </button>
                   </div>
+
+                  {bothSlotsUsed && (
+                    <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                      You have already used both your bull and bear post slots for {tickerFilter} this month. Delete one of your posts if you want to post again before next month.
+                    </div>
+                  )}
+
+                  {!bothSlotsUsed && stanceSlotUsed && (
+                    <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                      Your {postStance} slot for {tickerFilter} is already used this calendar month. Delete that post if you want to repost before next month.
+                    </div>
+                  )}
 
                   {postError && (
                     <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
@@ -426,7 +506,9 @@ export default function BearVsBullPage() {
                     key={`${argument.entry_type}-${argument.id}`}
                     argument={argument}
                     tone="bull"
+                    deletingKey={deletingKey}
                     votingKey={votingKey}
+                    onDelete={argument.can_delete ? () => void handleDelete(argument) : undefined}
                     onVote={direction => void handleVote(argument, direction)}
                   />
                 )) : (
@@ -448,7 +530,9 @@ export default function BearVsBullPage() {
                     key={`${argument.entry_type}-${argument.id}`}
                     argument={argument}
                     tone="bear"
+                    deletingKey={deletingKey}
                     votingKey={votingKey}
+                    onDelete={argument.can_delete ? () => void handleDelete(argument) : undefined}
                     onVote={direction => void handleVote(argument, direction)}
                   />
                 )) : (

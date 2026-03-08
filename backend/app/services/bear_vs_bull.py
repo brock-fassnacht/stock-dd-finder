@@ -1,9 +1,8 @@
-from datetime import date
+from datetime import date, datetime
 import hashlib
 import re
 
 from fastapi import HTTPException, Request
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..models import BearVsBullArgument, BearVsBullPost, BearVsBullVote, Company, User
@@ -92,6 +91,16 @@ def ensure_seed_data(db: Session) -> None:
 
 def _hash_value(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _month_window(now: datetime | None = None) -> tuple[datetime, datetime]:
+    current = now or datetime.utcnow()
+    month_start = datetime(current.year, current.month, 1)
+    if current.month == 12:
+        next_month = datetime(current.year + 1, 1, 1)
+    else:
+        next_month = datetime(current.year, current.month + 1, 1)
+    return month_start, next_month
 
 
 def get_request_ip_hash(request: Request) -> str:
@@ -185,6 +194,7 @@ def _serialize_argument(
         "downvotes": totals["down"],
         "has_voted": argument.id in viewer_votes,
         "is_user_generated": False,
+        "can_delete": False,
     }
 
 
@@ -192,6 +202,7 @@ def _serialize_post(
     post: BearVsBullPost,
     vote_totals: dict[int, dict[str, int]],
     viewer_votes: dict[int, str],
+    current_user: User | None,
 ) -> dict:
     totals = vote_totals.get(post.id, {"up": 0, "down": 0})
     created_date = post.created_at.date() if post.created_at else date.today()
@@ -214,6 +225,7 @@ def _serialize_post(
         "downvotes": totals["down"],
         "has_voted": post.id in viewer_votes,
         "is_user_generated": True,
+        "can_delete": bool(current_user and current_user.id == post.user_id),
     }
 
 
@@ -266,7 +278,7 @@ def build_bear_vs_bull_response(
             bear_arguments.append(item)
 
     for post in posts:
-        item = _serialize_post(post, post_vote_totals, post_viewer_votes)
+        item = _serialize_post(post, post_vote_totals, post_viewer_votes, current_user)
         if post.stance == "bull":
             bull_arguments.append(item)
         else:
@@ -303,10 +315,27 @@ def create_community_post(
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
 
+    normalized_stance = stance.lower().strip()
+    month_start, next_month = _month_window()
+    existing_month_post = db.query(BearVsBullPost).filter(
+        BearVsBullPost.company_id == company.id,
+        BearVsBullPost.user_id == user.id,
+        BearVsBullPost.stance == normalized_stance,
+        BearVsBullPost.created_at >= month_start,
+        BearVsBullPost.created_at < next_month,
+    ).first()
+
+    if existing_month_post:
+        month_label = month_start.strftime("%B %Y")
+        raise HTTPException(
+            status_code=409,
+            detail=f"You can only post one {normalized_stance} take for {company.ticker} during {month_label}",
+        )
+
     post = BearVsBullPost(
         company_id=company.id,
         user_id=user.id,
-        stance=stance.lower().strip(),
+        stance=normalized_stance,
         title=title.strip(),
         summary=summary.strip(),
     )
@@ -314,6 +343,21 @@ def create_community_post(
     db.commit()
     db.refresh(post)
     return post
+
+
+def delete_community_post(db: Session, post_id: int, user: User) -> None:
+    post = db.query(BearVsBullPost).filter(BearVsBullPost.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.user_id != user.id:
+        raise HTTPException(status_code=403, detail="You can only delete your own posts")
+
+    db.query(BearVsBullVote).filter(
+        BearVsBullVote.target_type == "post",
+        BearVsBullVote.target_id == post.id,
+    ).delete()
+    db.delete(post)
+    db.commit()
 
 
 def create_vote(

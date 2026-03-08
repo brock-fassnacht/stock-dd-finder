@@ -22,6 +22,7 @@ class BearVsBullArgumentResponse(BaseModel):
     downvotes: int
     has_voted: bool
     is_user_generated: bool
+    can_delete: bool
 
 
 class BearVsBullCreateRequest(BaseModel):
