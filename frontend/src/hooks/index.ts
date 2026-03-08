@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getCompanies, getTimeline, getFiling, getPrices, searchTickers, getExecComp } from '../api'
+import { getCompanies, getTimeline, getFiling, getPrices, searchTickers, getExecComp, getBearVsBull } from '../api'
 
 const MOBILE_BREAKPOINT = 640
 
@@ -49,7 +49,7 @@ export function useTickerSearch(query: string) {
     queryFn: () => searchTickers(query),
     enabled: query.length >= 1,
     staleTime: 1000 * 60 * 5,
-    placeholderData: (prev) => prev,
+    placeholderData: prev => prev,
   })
 }
 
@@ -57,6 +57,13 @@ export function useExecComp(params?: { ticker?: string }) {
   return useQuery({
     queryKey: ['execComp', params],
     queryFn: () => getExecComp(params),
+  })
+}
+
+export function useBearVsBull(params?: { ticker?: string }) {
+  return useQuery({
+    queryKey: ['bearVsBull', params],
+    queryFn: () => getBearVsBull(params),
   })
 }
 

@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      {/* Header */}
       <header className="px-6 py-4">
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <svg className="w-8 h-8 text-red-500" viewBox="0 0 64 64" fill="currentColor">
@@ -16,7 +15,6 @@ export default function LandingPage() {
         </h1>
       </header>
 
-      {/* Hero */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 -mt-16">
         <h2 className="text-4xl sm:text-5xl font-bold text-white text-center mb-4">
           Your AI-Powered Stock Research Hub
@@ -25,11 +23,41 @@ export default function LandingPage() {
           AI agents that help you stay on top of stock data, surface key insights, and discover your next investment idea.
         </p>
 
-        {/* Navigation cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-4xl">
+          <Link
+            to="/bear-vs-bull"
+            className="group bg-gradient-to-br from-amber-950 via-gray-800 to-emerald-950 border border-gray-700 rounded-2xl p-8 hover:border-amber-400 hover:shadow-2xl hover:shadow-amber-500/10 transition-all sm:col-span-2 sm:min-h-[300px] flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between gap-4 mb-6">
+                <div className="text-amber-300">
+                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 17l4-4 4 4 10-10" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7h6v6" />
+                  </svg>
+                </div>
+                <span className="text-xs uppercase tracking-[0.35em] text-gray-400">Debate Feed</span>
+              </div>
+
+              <h3 className="text-3xl sm:text-4xl font-semibold text-white mb-4 group-hover:text-amber-200 transition-colors">
+                Bear vs Bull
+              </h3>
+              <p className="text-base sm:text-lg text-gray-300 max-w-2xl">
+                Pick any tracked stock and compare the strongest bullish and bearish takes side by side from market conversations and research sources.
+              </p>
+            </div>
+
+            <div className="mt-8 flex flex-wrap gap-3 text-sm text-gray-300">
+              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10">Ticker filter</span>
+              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10">Bull case</span>
+              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10">Bear case</span>
+              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10">Source tracking</span>
+            </div>
+          </Link>
+
           <Link
             to="/sec-timeline"
-            className="group bg-gray-800 border border-gray-700 rounded-xl p-6 hover:border-blue-500 hover:bg-gray-800/80 transition-all"
+            className="group bg-gray-800 border border-gray-700 rounded-xl p-6 hover:border-blue-500 hover:bg-gray-800/80 transition-all sm:min-h-[140px]"
           >
             <div className="text-blue-400 mb-3">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -46,7 +74,7 @@ export default function LandingPage() {
 
           <Link
             to="/executive-comp"
-            className="group bg-gray-800 border border-gray-700 rounded-xl p-6 hover:border-green-500 hover:bg-gray-800/80 transition-all"
+            className="group bg-gray-800 border border-gray-700 rounded-xl p-6 hover:border-green-500 hover:bg-gray-800/80 transition-all sm:min-h-[140px]"
           >
             <div className="text-green-400 mb-3">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -63,7 +91,6 @@ export default function LandingPage() {
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="px-6 py-4 text-center text-gray-600 text-xs">
         Data sourced from SEC EDGAR. Summaries are AI-generated.
       </footer>

@@ -75,6 +75,27 @@ export interface ExecCompEntry {
   document_url: string | null
 }
 
+export interface BearVsBullArgument {
+  id: number
+  ticker: string
+  company_name: string
+  stance: 'bull' | 'bear'
+  source_type: string
+  source_name: string
+  author_handle: string | null
+  title: string
+  summary: string
+  url: string | null
+  as_of_date: string
+  confidence_score: number | null
+}
+
+export interface BearVsBullResponse {
+  ticker: string | null
+  bull_arguments: BearVsBullArgument[]
+  bear_arguments: BearVsBullArgument[]
+}
+
 export interface SyncStatus {
   running: boolean
   fetched: number

@@ -10,8 +10,9 @@ class Company(Base):
     id = Column(Integer, primary_key=True, index=True)
     ticker = Column(String, unique=True, nullable=False, index=True)
     name = Column(String, nullable=False)
-    cik = Column(String, unique=True, nullable=False)  # SEC Central Index Key
+    cik = Column(String, unique=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     filings = relationship("Filing", back_populates="company")
     press_releases = relationship("PressRelease", back_populates="company")
+    bear_vs_bull_arguments = relationship("BearVsBullArgument", back_populates="company")

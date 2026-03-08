@@ -1,18 +1,24 @@
-import type { Company, TimelineResponse, Filing, PriceResponse, TickerSearchResult, SyncStatus, ExecCompEntry } from './types'
+import type {
+  BearVsBullResponse,
+  Company,
+  TimelineResponse,
+  Filing,
+  PriceResponse,
+  TickerSearchResult,
+  SyncStatus,
+  ExecCompEntry,
+} from './types'
 
 function getApiBase(): string {
-  // Explicit env var takes priority
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL + '/api'
   }
-  // Auto-detect based on hostname
   if (typeof window !== 'undefined') {
     const host = window.location.hostname
     if (host === 'tickerclaw.com' || host === 'www.tickerclaw.com') {
       return 'https://api.tickerclaw.com/api'
     }
   }
-  // Fallback: production Railway URL (for Vercel previews)
   return 'https://stock-dd-finder-production.up.railway.app/api'
 }
 
@@ -35,7 +41,6 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   return response.json()
 }
 
-// Companies
 export async function getCompanies(): Promise<Company[]> {
   return fetchJson('/companies')
 }
@@ -51,7 +56,6 @@ export async function removeCompany(ticker: string): Promise<void> {
   return fetchJson(`/companies/${ticker}`, { method: 'DELETE' })
 }
 
-// Filings
 export async function getTimeline(params?: {
   ticker?: string
   form_type?: string
@@ -107,7 +111,6 @@ export async function logInterest(ticker: string, name: string): Promise<void> {
   })
 }
 
-// Sync
 export async function startSync(): Promise<{ message: string }> {
   return fetchJson('/filings/sync', { method: 'POST' })
 }
@@ -116,12 +119,10 @@ export async function getSyncStatus(): Promise<SyncStatus> {
   return fetchJson('/filings/sync-status')
 }
 
-// Ticker search
 export async function searchTickers(query: string): Promise<TickerSearchResult[]> {
   return fetchJson(`/companies/search?q=${encodeURIComponent(query)}`)
 }
 
-// Executive compensation
 export async function getExecComp(params?: {
   ticker?: string
 }): Promise<ExecCompEntry[]> {
@@ -131,7 +132,15 @@ export async function getExecComp(params?: {
   return fetchJson(`/exec-comp/${query ? `?${query}` : ''}`)
 }
 
-// Prices
+export async function getBearVsBull(params?: {
+  ticker?: string
+}): Promise<BearVsBullResponse> {
+  const searchParams = new URLSearchParams()
+  if (params?.ticker) searchParams.set('ticker', params.ticker)
+  const query = searchParams.toString()
+  return fetchJson(`/bear-vs-bull/${query ? `?${query}` : ''}`)
+}
+
 export async function getPrices(
   ticker: string,
   period: string = '1y'
