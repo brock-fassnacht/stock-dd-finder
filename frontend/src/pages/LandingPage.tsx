@@ -17,33 +17,33 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <main className="flex-1 px-6 pb-12 pt-4 sm:pt-8">
+      <main className="flex-1 px-6 pb-14 pt-6 sm:pt-10">
         <div className="max-w-6xl mx-auto">
-          <section className="grid grid-cols-1 xl:grid-cols-[0.95fr_1.25fr] gap-6 items-stretch">
-            <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-gray-900 via-gray-900 to-red-950/40 p-8 sm:p-10 flex flex-col justify-between min-h-[520px]">
-              <div>
-                <h2 className="text-4xl sm:text-5xl font-bold text-white leading-tight mb-5 max-w-xl">
+          <section className="grid grid-cols-1 xl:grid-cols-[0.95fr_1.25fr] gap-8 items-stretch">
+            <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-gray-900 via-gray-900 to-red-950/40 p-10 sm:p-12 flex flex-col justify-between min-h-[580px]">
+              <div className="max-w-xl">
+                <h2 className="text-4xl sm:text-5xl font-bold text-white leading-[1.02] mb-8 max-w-lg">
                   Claw through the noise. Find the thesis.
                 </h2>
-                <p className="text-lg text-gray-400 max-w-xl">
+                <p className="text-lg leading-9 text-gray-400 max-w-lg">
                   Jump from market narratives to filings and executive pay without bouncing between ten different tabs and tools.
                 </p>
               </div>
 
-              <div className="mt-8 space-y-3 text-sm">
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-gray-300">
+              <div className="mt-12 space-y-4 text-sm max-w-lg">
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-gray-300">
                   Debate, filings, and compensation in one place.
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-gray-300">
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-gray-300">
                   Built to make stock research faster and easier to explain.
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 min-h-[520px]">
+            <div className="grid grid-cols-1 gap-6 min-h-[580px]">
               <Link
                 to="/bear-vs-bull"
-                className="group bg-gradient-to-br from-amber-950 via-gray-800 to-emerald-950 border border-gray-700 rounded-3xl p-8 hover:border-amber-400 hover:shadow-2xl hover:shadow-amber-500/10 transition-all min-h-[320px] flex flex-col justify-between"
+                className="group bg-gradient-to-br from-amber-950 via-gray-800 to-emerald-950 border border-gray-700 rounded-3xl p-8 hover:border-amber-400 hover:shadow-2xl hover:shadow-amber-500/10 transition-all min-h-[340px] flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between gap-4 mb-6">
