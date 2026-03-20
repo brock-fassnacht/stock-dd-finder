@@ -105,6 +105,23 @@ export function Timeline({ events, onEventClick }: TimelineProps) {
           -webkit-line-clamp: 4;
           -webkit-box-orient: vertical;
           overflow: hidden;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(251, 191, 36, 0.6) rgba(255, 255, 255, 0.08);
+        }
+        .timeline-card .card-content::-webkit-scrollbar {
+          width: 10px;
+        }
+        .timeline-card .card-content::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.06);
+          border-radius: 9999px;
+        }
+        .timeline-card .card-content::-webkit-scrollbar-thumb {
+          background: linear-gradient(180deg, rgba(251, 191, 36, 0.9), rgba(245, 158, 11, 0.7));
+          border-radius: 9999px;
+          border: 2px solid rgba(28, 25, 23, 0.9);
+        }
+        .timeline-card .card-content::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(180deg, rgba(252, 211, 77, 0.95), rgba(251, 191, 36, 0.8));
         }
         @media (hover: hover) {
           .timeline-row:has(.timeline-card-wrapper:hover) {
