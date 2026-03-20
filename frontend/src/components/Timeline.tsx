@@ -8,54 +8,20 @@ interface TimelineProps {
 }
 
 const CARDS_PER_ROW_MOBILE = 2
-const CARDS_PER_ROW_DESKTOP = 4
+const CARDS_PER_ROW_DESKTOP = 5
 
-function getFormTone(formType: string) {
-  if (formType.includes('10-K') || formType.includes('10-Q')) {
-    return {
-      badge: 'border-sky-400/20 bg-sky-500/10 text-sky-200',
-      accent: 'bg-sky-300/80',
-    }
-  }
-
-  if (formType.includes('8-K') || formType.includes('DEF 14A')) {
-    return {
-      badge: 'border-amber-400/20 bg-amber-500/10 text-amber-100',
-      accent: 'bg-amber-300/80',
-    }
-  }
-
-  if (formType === '4') {
-    return {
-      badge: 'border-fuchsia-400/20 bg-fuchsia-500/10 text-fuchsia-200',
-      accent: 'bg-fuchsia-300/80',
-    }
-  }
-
-  if (formType === 'PR') {
-    return {
-      badge: 'border-white/10 bg-white/10 text-stone-100',
-      accent: 'bg-stone-200/80',
-    }
-  }
-
-  return {
-    badge: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200',
-    accent: 'bg-emerald-300/80',
-  }
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+function getFormTypeColor(formType: string): string {
+  if (formType.includes('10-K')) return '#7dd3fc'
+  if (formType.includes('10-Q')) return '#7dd3fc'
+  if (formType.includes('8-K')) return '#fbbf24'
+  if (formType === '4') return '#c084fc'
+  if (formType === 'PR') return '#f5f5f4'
+  return '#6ee7b7'
 }
 
 export function Timeline({ events, onEventClick }: TimelineProps) {
   const isMobile = useIsMobile()
-  const cardsPerRow = isMobile ? CARDS_PER_ROW_MOBILE : CARDS_PER_ROW_DESKTOP
+  const CARDS_PER_ROW = isMobile ? CARDS_PER_ROW_MOBILE : CARDS_PER_ROW_DESKTOP
 
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) =>
@@ -65,135 +31,214 @@ export function Timeline({ events, onEventClick }: TimelineProps) {
 
   const rows = useMemo(() => {
     const result: TimelineEvent[][] = []
-    for (let index = 0; index < sortedEvents.length; index += cardsPerRow) {
-      const row = sortedEvents.slice(index, index + cardsPerRow)
-      const rowIndex = Math.floor(index / cardsPerRow)
+    for (let i = 0; i < sortedEvents.length; i += CARDS_PER_ROW) {
+      const row = sortedEvents.slice(i, i + CARDS_PER_ROW)
+      const rowIndex = Math.floor(i / CARDS_PER_ROW)
       result.push(!isMobile && rowIndex % 2 === 1 ? [...row].reverse() : row)
     }
     return result
-  }, [cardsPerRow, isMobile, sortedEvents])
+  }, [sortedEvents, CARDS_PER_ROW, isMobile])
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  }
 
   if (events.length === 0) {
     return (
-      <div className="flex min-h-[420px] items-center justify-center p-6 sm:p-10">
-        <div className="max-w-md rounded-3xl border border-dashed border-white/10 bg-white/[0.03] px-6 py-8 text-center">
-          <h3 className="text-xl font-semibold text-white">No filings matched these filters</h3>
-          <p className="mt-3 text-sm leading-7 text-stone-400">
-            Try changing the selected stock or turning additional form types back on.
-          </p>
-        </div>
+      <div className="absolute inset-0 flex items-center justify-center text-stone-400 bg-stone-950">
+        No filings found. Add companies and fetch filings to get started.
       </div>
     )
   }
 
   return (
-    <div className="relative h-full overflow-auto px-4 py-5 sm:px-6 sm:py-6">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.08),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(251,191,36,0.08),transparent_26%)]" />
+    <div className="absolute inset-0 overflow-auto p-4 bg-stone-950">
+      <style>{`
+        @keyframes flowRight {
+          0% { background-position: 0% 50%; }
+          100% { background-position: 200% 50%; }
+        }
+        @keyframes flowLeft {
+          0% { background-position: 200% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes flowDown {
+          0% { background-position: 50% 0%; }
+          100% { background-position: 50% 200%; }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 0.45; }
+          50% { opacity: 0.75; }
+        }
+        .snake-line-h {
+          background: linear-gradient(90deg, rgba(125,211,252,0.45), rgba(255,255,255,0.18), rgba(251,191,36,0.45), rgba(125,211,252,0.45));
+          background-size: 200% 100%;
+          box-shadow: 0 0 12px rgba(125, 211, 252, 0.12), 0 0 24px rgba(251, 191, 36, 0.08);
+          animation: pulse 2.4s ease-in-out infinite;
+        }
+        .snake-line-h-right {
+          animation: flowRight 2.3s linear infinite, pulse 2.4s ease-in-out infinite;
+        }
+        .snake-line-h-left {
+          animation: flowLeft 2.3s linear infinite, pulse 2.4s ease-in-out infinite;
+        }
+        .snake-line-v {
+          background: linear-gradient(180deg, rgba(125,211,252,0.45), rgba(255,255,255,0.18), rgba(251,191,36,0.45), rgba(125,211,252,0.45));
+          background-size: 100% 200%;
+          box-shadow: 0 0 12px rgba(125, 211, 252, 0.12), 0 0 24px rgba(251, 191, 36, 0.08);
+          animation: flowDown 2.3s linear infinite, pulse 2.4s ease-in-out infinite;
+        }
+        .timeline-card-wrapper {
+          position: relative;
+          z-index: 1;
+        }
+        .timeline-card {
+          transition: background-color 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out;
+          border-color: rgba(255, 255, 255, 0.08);
+        }
+        .timeline-card .card-content {
+          display: -webkit-box;
+          -webkit-line-clamp: 4;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        @media (hover: hover) {
+          .timeline-row:has(.timeline-card-wrapper:hover) {
+            z-index: 100;
+          }
+          .timeline-card-wrapper:hover {
+            z-index: 100;
+          }
+          .timeline-card-wrapper:hover .timeline-card {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+          }
+          .timeline-card-wrapper:hover .timeline-card .card-content {
+            display: block;
+            -webkit-line-clamp: unset;
+            overflow: visible;
+            max-height: 300px;
+            overflow-y: auto;
+          }
+        }
+      `}</style>
 
-      <div className="relative z-10 space-y-3">
-        {rows.map((row, rowIndex) => {
-          const isReversed = !isMobile && rowIndex % 2 === 1
-          const isLastRow = rowIndex === rows.length - 1
-          const rowHasFullCards = row.length === cardsPerRow
+      {rows.map((row, rowIndex) => {
+        const isReversed = !isMobile && rowIndex % 2 === 1
+        const isLastRow = rowIndex === rows.length - 1
+        const rowHasFullCards = row.length === CARDS_PER_ROW
 
-          return (
-            <div key={rowIndex} className="relative">
-              {!isMobile && (
+        return (
+          <div key={rowIndex} className="timeline-row relative">
+            {!isMobile && (
+              <div
+                className={`absolute top-1/2 -translate-y-1/2 h-2 rounded-full snake-line-h ${isReversed ? 'snake-line-h-left' : 'snake-line-h-right'}`}
+                style={{
+                  left: isReversed ? (rowHasFullCards ? '12px' : `${((CARDS_PER_ROW - row.length) / CARDS_PER_ROW) * 100}%`) : '12px',
+                  right: isReversed ? '12px' : (rowHasFullCards ? '12px' : `${((CARDS_PER_ROW - row.length) / CARDS_PER_ROW) * 100}%`),
+                }}
+              />
+            )}
+
+            <div
+              className="grid gap-3 mb-0 relative z-10"
+              style={{ gridTemplateColumns: `repeat(${CARDS_PER_ROW}, 1fr)` }}
+            >
+              {isReversed && row.length < CARDS_PER_ROW &&
+                Array(CARDS_PER_ROW - row.length).fill(0).map((_, i) => (
+                  <div key={`empty-${i}`} />
+                ))
+              }
+
+              {row.map((event) => {
+                const cardContent = (
+                  <>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-bold text-white">
+                        {event.ticker}
+                      </span>
+                      <span
+                        className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${event.form_type === 'PR' ? 'text-stone-900' : 'text-white'}`}
+                        style={{ backgroundColor: getFormTypeColor(event.form_type) }}
+                      >
+                        {event.form_type === 'PR' ? 'News' : event.form_type}
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] text-stone-500 mb-1">
+                      {formatDate(event.filed_date)}
+                    </div>
+
+                    <p className="card-content text-sm text-stone-300 leading-snug">
+                      {event.headline || event.form_type_description || 'No summary'}
+                    </p>
+                  </>
+                )
+
+                return (
+                  <div key={event.id} className="timeline-card-wrapper" style={{ minHeight: isMobile ? '120px' : '150px' }}>
+                    {isMobile ? (
+                      <div
+                        className="timeline-card p-3 rounded-lg shadow-lg cursor-pointer border border-l-4 border-white flex flex-col"
+                        style={{ backgroundColor: 'rgb(28, 25, 23)', minHeight: '120px' }}
+                        onClick={() => onEventClick?.(event)}
+                      >
+                        {cardContent}
+                      </div>
+                    ) : (
+                      <a
+                        href={event.document_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="timeline-card p-3 rounded-lg shadow-lg cursor-pointer border border-l-4 border-white flex flex-col no-underline"
+                        style={{ backgroundColor: 'rgb(28, 25, 23)', minHeight: '150px' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgb(41, 37, 36)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgb(28, 25, 23)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
+                      >
+                        {cardContent}
+                      </a>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {!isLastRow && !isMobile && (
+              <div
+                className="relative"
+                style={{ height: '28px' }}
+              >
                 <div
-                  className="pointer-events-none absolute top-[92px] h-px bg-gradient-to-r from-sky-300/20 via-white/15 to-amber-300/20"
+                  className="absolute w-2 rounded-full snake-line-v"
                   style={{
-                    left: isReversed
-                      ? rowHasFullCards
-                        ? '20px'
-                        : `${((cardsPerRow - row.length) / cardsPerRow) * 100}%`
-                      : '20px',
-                    right: isReversed
-                      ? '20px'
-                      : rowHasFullCards
-                        ? '20px'
-                        : `${((cardsPerRow - row.length) / cardsPerRow) * 100}%`,
+                    top: 0,
+                    bottom: 0,
+                    [isReversed ? 'left' : 'right']: '12px',
                   }}
                 />
-              )}
-
-              <div
-                className="grid gap-4"
-                style={{ gridTemplateColumns: `repeat(${cardsPerRow}, minmax(0, 1fr))` }}
-              >
-                {isReversed && row.length < cardsPerRow &&
-                  Array(cardsPerRow - row.length).fill(0).map((_, index) => (
-                    <div key={`empty-${rowIndex}-${index}`} />
-                  ))}
-
-                {row.map(event => {
-                  const tone = getFormTone(event.form_type)
-                  return (
-                    <button
-                      type="button"
-                      key={event.id}
-                      onClick={() => onEventClick?.(event)}
-                      className="group relative min-h-[184px] overflow-hidden rounded-[26px] border border-white/10 bg-gradient-to-br from-stone-900 via-stone-900 to-stone-950/90 p-4 text-left shadow-[0_20px_60px_-35px_rgba(0,0,0,0.9)] transition duration-200 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/70"
-                    >
-                      <div className={`absolute inset-y-5 left-0 w-[3px] rounded-full ${tone.accent}`} />
-
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold uppercase tracking-[0.22em] text-white">
-                              {event.ticker}
-                            </span>
-                            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${tone.badge}`}>
-                              {event.form_type === 'PR' ? 'News' : event.form_type}
-                            </span>
-                          </div>
-                          <p className="mt-2 truncate text-xs uppercase tracking-[0.18em] text-stone-500">
-                            {event.company_name}
-                          </p>
-                        </div>
-
-                        <span className="shrink-0 text-xs text-stone-500">
-                          {formatDate(event.filed_date)}
-                        </span>
-                      </div>
-
-                      <p
-                        className="mt-4 text-sm leading-7 text-stone-200"
-                        style={{
-                          display: '-webkit-box',
-                          WebkitLineClamp: 4,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {event.headline || event.form_type_description || 'No summary available for this filing.'}
-                      </p>
-
-                      <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
-                        <span className="text-[11px] uppercase tracking-[0.22em] text-stone-500">
-                          {event.event_type === 'press_release' ? 'Press release' : 'SEC filing'}
-                        </span>
-                        <span className="text-sm font-medium text-stone-300 transition group-hover:text-white">
-                          Open details
-                        </span>
-                      </div>
-                    </button>
-                  )
-                })}
               </div>
+            )}
+            {!isLastRow && isMobile && <div style={{ height: '8px' }} />}
+          </div>
+        )
+      })}
 
-              {!isLastRow && !isMobile && (
-                <div className="relative h-9">
-                  <div
-                    className="pointer-events-none absolute top-0 bottom-0 w-px bg-gradient-to-b from-white/10 via-sky-300/20 to-amber-300/20"
-                    style={isReversed ? { left: '20px' } : { right: '20px' }}
-                  />
-                </div>
-              )}
-
-              {!isLastRow && isMobile && <div className="h-1" />}
-            </div>
-          )
-        })}
+      <div className="pt-16 pb-8 text-center">
+        <p className="text-xs text-stone-500">
+          These summaries are AI-generated. Please refer to the original filings at{' '}
+          <a href="https://www.sec.gov/edgar/searchedgar/companysearch" target="_blank" rel="noopener noreferrer" className="text-stone-300 underline hover:text-white">
+            SEC.gov
+          </a>{' '}
+          for complete information.
+        </p>
       </div>
     </div>
   )
