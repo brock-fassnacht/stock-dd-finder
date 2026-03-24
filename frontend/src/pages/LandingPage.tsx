@@ -16,8 +16,8 @@ export default function LandingPage() {
             TickerClaw
           </h1>
           <div className="flex items-center gap-4">
-            <Link to="/top-25" className="text-sm font-medium text-amber-300 hover:text-amber-200">
-              Top 25
+            <Link to="/top-25" className="rounded-full border border-amber-300/25 bg-amber-500/10 px-3 py-1.5 text-sm font-semibold text-amber-200 hover:border-amber-200/40 hover:text-amber-100">
+              25 Tracked Tickers
             </Link>
             <AuthButton variant="dark" />
           </div>

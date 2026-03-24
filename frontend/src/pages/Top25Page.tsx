@@ -26,18 +26,17 @@ export default function Top25Page() {
         </div>
       </header>
 
-      <main className="flex-1 px-4 py-8 sm:px-6">
+      <main className="flex-1 px-4 py-4 sm:px-6 sm:py-5">
         <div className="mx-auto max-w-5xl">
-          <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-stone-900 via-stone-900 to-red-950/40 p-6 sm:p-8">
+          <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-stone-900 via-stone-900 to-red-950/40 p-4 sm:p-5">
             <p className="text-xs uppercase tracking-[0.32em] text-stone-400">Tracked List</p>
-            <h2 className="mt-3 text-3xl sm:text-4xl font-semibold">TickerClaw Top 25</h2>
-            <p className="mt-4 max-w-3xl text-sm sm:text-base leading-7 text-stone-300">
-              This page currently pulls from the securities managed in the admin panel on the SEC Filings Timeline page.
-              Update that tracked list there, and this page updates automatically.
+            <h2 className="mt-2 text-xl sm:text-2xl font-semibold">25 Tracked Tickers</h2>
+            <p className="mt-2 max-w-3xl text-xs sm:text-sm leading-6 text-stone-300">
+              These are the 25 currently tracked tickers. We aim to keep the most contested stocks on this list.
             </p>
           </section>
 
-          <section className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-6">
+          <section className="mt-4 rounded-3xl border border-white/10 bg-white/5 p-3 sm:p-4">
             {isLoading ? (
               <Loading />
             ) : error ? (
@@ -50,7 +49,7 @@ export default function Top25Page() {
               </div>
             ) : (
               <div className="overflow-hidden rounded-2xl border border-white/10">
-                <div className="grid grid-cols-[72px_minmax(0,1fr)] border-b border-white/10 bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.24em] text-stone-400 sm:grid-cols-[88px_160px_minmax(0,1fr)]">
+                <div className="grid grid-cols-[56px_minmax(0,1fr)] border-b border-white/10 bg-white/5 px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-stone-400 sm:grid-cols-[64px_112px_minmax(0,1fr)]">
                   <div>Rank</div>
                   <div className="hidden sm:block">Ticker</div>
                   <div>Company</div>
@@ -59,21 +58,21 @@ export default function Top25Page() {
                 {topCompanies.map((company, index) => (
                   <div
                     key={company.ticker}
-                    className="grid grid-cols-[72px_minmax(0,1fr)] items-center border-b border-white/10 px-4 py-4 last:border-b-0 sm:grid-cols-[88px_160px_minmax(0,1fr)]"
+                    className="grid grid-cols-[56px_minmax(0,1fr)] items-center border-b border-white/10 px-3 py-2.5 last:border-b-0 sm:grid-cols-[64px_112px_minmax(0,1fr)]"
                   >
-                    <div className="text-lg font-semibold text-amber-200">#{index + 1}</div>
+                    <div className="text-sm font-semibold text-amber-200">#{index + 1}</div>
                     <div className="hidden sm:block">
-                      <span className="inline-flex rounded-full border border-amber-300/20 bg-amber-500/10 px-3 py-1 font-mono text-sm font-semibold text-amber-100">
+                      <span className="inline-flex rounded-full border border-amber-300/20 bg-amber-500/10 px-2 py-0.5 font-mono text-xs font-semibold text-amber-100">
                         {company.ticker}
                       </span>
                     </div>
                     <div className="min-w-0">
                       <div className="sm:hidden">
-                        <span className="inline-flex rounded-full border border-amber-300/20 bg-amber-500/10 px-2.5 py-1 font-mono text-xs font-semibold text-amber-100">
+                        <span className="inline-flex rounded-full border border-amber-300/20 bg-amber-500/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-amber-100">
                           {company.ticker}
                         </span>
                       </div>
-                      <div className="mt-2 text-sm sm:mt-0 sm:text-base text-white">{company.name}</div>
+                      <div className="mt-1 text-xs leading-5 text-white sm:mt-0 sm:text-sm">{company.name}</div>
                     </div>
                   </div>
                 ))}

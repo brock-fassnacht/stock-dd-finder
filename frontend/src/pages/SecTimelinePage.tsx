@@ -122,8 +122,8 @@ export default function SecTimelinePage() {
             </Link>
             <span className="text-white/20">|</span>
             <h1 className="text-base sm:text-xl font-bold text-white">SEC Filings Timeline</h1>
-            <Link to="/top-25" className="text-xs sm:text-sm font-medium text-amber-300 hover:text-amber-200">
-              Top 25
+            <Link to="/top-25" className="rounded-full border border-amber-300/25 bg-amber-500/10 px-3 py-1 text-xs sm:text-sm font-semibold text-amber-200 hover:border-amber-200/40 hover:text-amber-100">
+              25 Tracked Tickers
             </Link>
           </div>
 

@@ -68,8 +68,8 @@ export default function ExecCompPage() {
             </Link>
             <span className="text-gray-300">|</span>
             <h1 className="text-base sm:text-xl font-bold text-gray-900">Executive Compensation</h1>
-            <Link to="/top-25" className="text-xs sm:text-sm font-medium text-blue-600 hover:text-blue-800">
-              Top 25
+            <Link to="/top-25" className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs sm:text-sm font-semibold text-blue-700 hover:border-blue-300 hover:text-blue-900">
+              25 Tracked Tickers
             </Link>
           </div>
 
