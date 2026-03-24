@@ -78,13 +78,34 @@ export interface ExecCompEntry {
 export interface User {
   id: number
   email: string
+  display_name: string | null
   member_label: string
+  account_type: 'member' | 'agent'
+  monthly_post_limit_per_stance: number
   created_at: string
 }
 
 export interface AuthSessionResponse {
   token: string
   user: User
+}
+
+export interface AgentApiKey {
+  id: number
+  label: string
+  last_used_at: string | null
+  revoked_at: string | null
+  created_at: string
+}
+
+export interface AgentApiKeyCreateResponse {
+  api_key: string
+  key: AgentApiKey
+}
+
+export interface AgentApiKeyListResponse {
+  agent: User
+  keys: AgentApiKey[]
 }
 
 export interface BearVsBullArgument {
@@ -106,6 +127,12 @@ export interface BearVsBullArgument {
   downvotes: number
   has_voted: boolean
   is_user_generated: boolean
+  author_account_type: 'member' | 'agent' | null
+  author_user_id: number | null
+  source_url: string | null
+  source_published_at: string | null
+  external_id: string | null
+  created_via: 'member' | 'agent' | null
   can_delete: boolean
 }
 

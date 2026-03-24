@@ -9,6 +9,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from .database import engine, Base
 from .routers import auth_router, companies_router, filings_router, prices_router, exec_comp_router, bear_vs_bull_router
 from .config import get_settings
+from .services.runtime_migrations import ensure_runtime_schema
 from .services.sync import sync_all_companies
 
 logging.basicConfig(
@@ -25,6 +26,7 @@ async def lifespan(app: FastAPI):
     logger.info("Starting SEC Filing Timeline...")
     if engine:
         Base.metadata.create_all(bind=engine)
+        ensure_runtime_schema(engine)
         logger.info("Database tables created/verified")
     else:
         logger.warning("Database not configured - set DATABASE_URL in .env")

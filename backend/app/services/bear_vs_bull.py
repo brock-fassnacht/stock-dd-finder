@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import hashlib
 import re
 
@@ -6,10 +6,11 @@ from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
 
 from ..models import BearVsBullArgument, BearVsBullPost, BearVsBullVote, Company, User
-from .auth import build_member_label
+from .auth import build_user_label, get_user_post_limit, normalize_account_type
 
 
 ANONYMOUS_VOTER_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{12,128}$")
+AGENT_DUPLICATE_SOURCE_WINDOW = timedelta(hours=24)
 
 TEMPLATES = {
     "bull": {
@@ -103,6 +104,73 @@ def _month_window(now: datetime | None = None) -> tuple[datetime, datetime]:
     return month_start, next_month
 
 
+def _agent_requires_sources(user: User) -> bool:
+    return normalize_account_type(user.account_type) == "agent"
+
+
+def _normalize_optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _validate_agent_source_fields(
+    user: User,
+    source_type: str | None,
+    source_name: str | None,
+    source_url: str | None,
+) -> None:
+    if not _agent_requires_sources(user):
+        return
+
+    missing_fields = [
+        field_name
+        for field_name, field_value in {
+            "source_type": source_type,
+            "source_name": source_name,
+            "source_url": source_url,
+        }.items()
+        if not field_value
+    ]
+    if missing_fields:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Agent posts require structured source metadata: {', '.join(missing_fields)}",
+        )
+
+
+def _enforce_agent_dedupe(
+    db: Session,
+    company_id: int,
+    stance: str,
+    source_url: str | None,
+    external_id: str | None,
+) -> None:
+    if external_id:
+        existing_external = db.query(BearVsBullPost.id).filter(
+            BearVsBullPost.created_via == "agent",
+            BearVsBullPost.external_id == external_id,
+        ).first()
+        if existing_external:
+            raise HTTPException(status_code=409, detail="An agent post with that external_id already exists")
+
+    if source_url:
+        duplicate_cutoff = datetime.utcnow() - AGENT_DUPLICATE_SOURCE_WINDOW
+        existing_source = db.query(BearVsBullPost.id).filter(
+            BearVsBullPost.created_via == "agent",
+            BearVsBullPost.company_id == company_id,
+            BearVsBullPost.stance == stance,
+            BearVsBullPost.source_url == source_url,
+            BearVsBullPost.created_at >= duplicate_cutoff,
+        ).first()
+        if existing_source:
+            raise HTTPException(
+                status_code=409,
+                detail="An agent already posted this stock, side, and source URL within the last 24 hours",
+            )
+
+
 def get_request_ip_hash(request: Request) -> str:
     forwarded_for = request.headers.get("x-forwarded-for", "")
     client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else ""
@@ -194,11 +262,17 @@ def _serialize_argument(
         "downvotes": totals["down"],
         "has_voted": argument.id in viewer_votes,
         "is_user_generated": False,
+        "author_account_type": None,
+        "author_user_id": None,
+        "source_url": argument.url,
+        "source_published_at": argument.as_of_date,
+        "external_id": None,
+        "created_via": None,
         "can_delete": False,
     }
 
 
-def _serialize_post(
+def serialize_post_entry(
     post: BearVsBullPost,
     vote_totals: dict[int, dict[str, int]],
     viewer_votes: dict[int, str],
@@ -206,25 +280,36 @@ def _serialize_post(
 ) -> dict:
     totals = vote_totals.get(post.id, {"up": 0, "down": 0})
     created_date = post.created_at.date() if post.created_at else date.today()
+    author_account_type = normalize_account_type(post.user.account_type)
+    source_type = post.source_type or "community"
+    source_name = post.source_name or ("TickerClaw agent" if author_account_type == "agent" else "TickerClaw member")
+    source_url = post.source_url
+
     return {
         "id": post.id,
         "entry_type": "post",
         "ticker": post.company.ticker,
         "company_name": post.company.name,
         "stance": post.stance,
-        "source_type": "community",
-        "source_name": "TickerClaw member",
-        "author_handle": build_member_label(post.user_id),
+        "source_type": source_type,
+        "source_name": source_name,
+        "author_handle": build_user_label(post.user),
         "title": post.title,
         "summary": post.summary,
-        "url": None,
-        "as_of_date": created_date,
+        "url": source_url,
+        "as_of_date": post.source_published_at or created_date,
         "confidence_score": None,
         "vote_score": totals["up"] - totals["down"],
         "upvotes": totals["up"],
         "downvotes": totals["down"],
         "has_voted": post.id in viewer_votes,
         "is_user_generated": True,
+        "author_account_type": author_account_type,
+        "author_user_id": post.user_id,
+        "source_url": source_url,
+        "source_published_at": post.source_published_at,
+        "external_id": post.external_id,
+        "created_via": post.created_via,
         "can_delete": bool(current_user and current_user.id == post.user_id),
     }
 
@@ -278,7 +363,7 @@ def build_bear_vs_bull_response(
             bear_arguments.append(item)
 
     for post in posts:
-        item = _serialize_post(post, post_vote_totals, post_viewer_votes, current_user)
+        item = serialize_post_entry(post, post_vote_totals, post_viewer_votes, current_user)
         if post.stance == "bull":
             bull_arguments.append(item)
         else:
@@ -310,26 +395,48 @@ def create_community_post(
     title: str,
     summary: str,
     user: User,
+    source_type: str | None = None,
+    source_name: str | None = None,
+    source_url: str | None = None,
+    source_published_at: date | None = None,
+    external_id: str | None = None,
 ) -> BearVsBullPost:
     company = db.query(Company).filter(Company.ticker == ticker.upper().strip()).first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
 
     normalized_stance = stance.lower().strip()
+    normalized_source_type = _normalize_optional_text(source_type)
+    normalized_source_name = _normalize_optional_text(source_name)
+    normalized_source_url = _normalize_optional_text(source_url)
+    normalized_external_id = _normalize_optional_text(external_id)
+
+    _validate_agent_source_fields(user, normalized_source_type, normalized_source_name, normalized_source_url)
+    if _agent_requires_sources(user):
+        _enforce_agent_dedupe(
+            db=db,
+            company_id=company.id,
+            stance=normalized_stance,
+            source_url=normalized_source_url,
+            external_id=normalized_external_id,
+        )
+
     month_start, next_month = _month_window()
-    existing_month_post = db.query(BearVsBullPost).filter(
+    post_limit = get_user_post_limit(user)
+    existing_month_post_count = db.query(BearVsBullPost).filter(
         BearVsBullPost.company_id == company.id,
         BearVsBullPost.user_id == user.id,
         BearVsBullPost.stance == normalized_stance,
         BearVsBullPost.created_at >= month_start,
         BearVsBullPost.created_at < next_month,
-    ).first()
+    ).count()
 
-    if existing_month_post:
+    if existing_month_post_count >= post_limit:
         month_label = month_start.strftime("%B %Y")
+        limit_label = "one" if post_limit == 1 else str(post_limit)
         raise HTTPException(
             status_code=409,
-            detail=f"You can only post one {normalized_stance} take for {company.ticker} during {month_label}",
+            detail=f"You can only post {limit_label} {normalized_stance} take{'s' if post_limit != 1 else ''} for {company.ticker} during {month_label}",
         )
 
     post = BearVsBullPost(
@@ -338,6 +445,12 @@ def create_community_post(
         stance=normalized_stance,
         title=title.strip(),
         summary=summary.strip(),
+        source_type=normalized_source_type,
+        source_name=normalized_source_name,
+        source_url=normalized_source_url,
+        source_published_at=source_published_at,
+        external_id=normalized_external_id,
+        created_via="agent" if _agent_requires_sources(user) else "member",
     )
     db.add(post)
     db.commit()

@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 
 class BearVsBullArgumentResponse(BaseModel):
@@ -22,6 +22,12 @@ class BearVsBullArgumentResponse(BaseModel):
     downvotes: int
     has_voted: bool
     is_user_generated: bool
+    author_account_type: str | None = None
+    author_user_id: int | None = None
+    source_url: str | None = None
+    source_published_at: date | None = None
+    external_id: str | None = None
+    created_via: str | None = None
     can_delete: bool
 
 
@@ -30,6 +36,11 @@ class BearVsBullCreateRequest(BaseModel):
     stance: str
     title: str = Field(min_length=5, max_length=120)
     summary: str = Field(min_length=20, max_length=1700)
+    source_type: str | None = Field(default=None, max_length=40)
+    source_name: str | None = Field(default=None, max_length=80)
+    source_url: HttpUrl | None = None
+    source_published_at: date | None = None
+    external_id: str | None = Field(default=None, max_length=120)
 
     @field_validator("ticker")
     @classmethod
@@ -43,6 +54,30 @@ class BearVsBullCreateRequest(BaseModel):
         if normalized not in {"bull", "bear"}:
             raise ValueError("Stance must be bull or bear")
         return normalized
+
+    @field_validator("source_type")
+    @classmethod
+    def normalize_source_type(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().lower().replace(" ", "_")
+        return normalized or None
+
+    @field_validator("source_name")
+    @classmethod
+    def normalize_source_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+    @field_validator("external_id")
+    @classmethod
+    def normalize_external_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
 
 class BearVsBullVoteRequest(BaseModel):

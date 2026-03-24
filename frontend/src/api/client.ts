@@ -1,4 +1,6 @@
 import type {
+  AgentApiKeyCreateResponse,
+  AgentApiKeyListResponse,
   AuthSessionResponse,
   BearVsBullArgument,
   BearVsBullResponse,
@@ -29,6 +31,43 @@ function getApiBase(): string {
 }
 
 const API_BASE = getApiBase()
+
+function formatErrorDetail(detail: unknown): string {
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail
+  }
+
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map(item => {
+        if (typeof item === 'string') return item
+        if (item && typeof item === 'object') {
+          const record = item as Record<string, unknown>
+          const message = typeof record.msg === 'string' ? record.msg : ''
+          const location = Array.isArray(record.loc)
+            ? record.loc.filter(part => typeof part === 'string' || typeof part === 'number').join(' > ')
+            : ''
+          if (message && location) return `${location}: ${message}`
+          if (message) return message
+        }
+        return ''
+      })
+      .filter(Boolean)
+
+    if (messages.length) {
+      return messages.join('. ')
+    }
+  }
+
+  if (detail && typeof detail === 'object') {
+    const record = detail as Record<string, unknown>
+    if (typeof record.message === 'string' && record.message.trim()) {
+      return record.message
+    }
+  }
+
+  return 'Request failed'
+}
 
 function createAnonymousVoterId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -85,7 +124,7 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Request failed' }))
-    throw new Error(error.detail || 'Request failed')
+    throw new Error(formatErrorDetail(error.detail))
   }
 
   if (response.status === 204) {
@@ -200,6 +239,11 @@ export async function createBearVsBullPost(payload: {
   stance: 'bull' | 'bear'
   title: string
   summary: string
+  source_type?: string
+  source_name?: string
+  source_url?: string
+  source_published_at?: string
+  external_id?: string
 }): Promise<BearVsBullArgument> {
   return fetchJson('/bear-vs-bull/posts', {
     method: 'POST',
@@ -244,6 +288,28 @@ export async function getCurrentUser(): Promise<User> {
 
 export async function logoutUser(): Promise<void> {
   return fetchJson('/auth/logout', { method: 'POST' })
+}
+
+export async function createAgentApiKey(userId: number, label: string, adminKey: string): Promise<AgentApiKeyCreateResponse> {
+  return fetchJson(`/auth/agent-accounts/${userId}/keys`, {
+    method: 'POST',
+    headers: { 'X-Admin-Key': adminKey },
+    body: JSON.stringify({ label }),
+  })
+}
+
+export async function listAgentApiKeys(userId: number, adminKey: string): Promise<AgentApiKeyListResponse> {
+  return fetchJson(`/auth/agent-accounts/${userId}/keys`, {
+    method: 'GET',
+    headers: { 'X-Admin-Key': adminKey },
+  })
+}
+
+export async function revokeAgentApiKey(userId: number, keyId: number, adminKey: string) {
+  return fetchJson(`/auth/agent-accounts/${userId}/keys/${keyId}/revoke`, {
+    method: 'POST',
+    headers: { 'X-Admin-Key': adminKey },
+  })
 }
 
 export async function getPrices(

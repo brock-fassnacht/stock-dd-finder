@@ -32,7 +32,7 @@ function prettySourceType(sourceType: string) {
     case 'community':
       return 'Community'
     default:
-      return sourceType.charAt(0).toUpperCase() + sourceType.slice(1)
+      return sourceType.charAt(0).toUpperCase() + sourceType.slice(1).replace(/_/g, ' ')
   }
 }
 
@@ -52,9 +52,43 @@ function isCurrentCalendarMonth(value: string) {
   return now.getFullYear() === dateValue.getFullYear() && now.getMonth() === dateValue.getMonth()
 }
 
+function isOwnedByCurrentUser(argument: BearVsBullArgument, user: ReturnType<typeof useAuth>['user']) {
+  if (!user || !argument.is_user_generated || argument.entry_type !== 'post') {
+    return false
+  }
+
+  if (argument.can_delete) {
+    return true
+  }
+
+  if (typeof argument.author_user_id === 'number') {
+    return argument.author_user_id === user.id
+  }
+
+  const possibleLabels = [user.member_label, user.display_name].filter(Boolean)
+  return possibleLabels.some(label => label === argument.author_handle)
+}
+
+function accountBadgeLabel(argument: BearVsBullArgument) {
+  return argument.author_account_type === 'agent' ? 'Agent post' : 'Member post'
+}
+
+function postSourceLink(argument: BearVsBullArgument) {
+  return argument.source_url || argument.url
+}
+
+function sourceMetaLabel(argument: BearVsBullArgument) {
+  const pieces = [argument.source_name]
+  if (argument.author_handle) {
+    pieces.push(argument.author_handle)
+  }
+  return pieces.filter(Boolean).join(' - ')
+}
+
 function ArgumentCard({
   argument,
   tone,
+  canDelete,
   onDelete,
   onVote,
   deletingKey,
@@ -62,6 +96,7 @@ function ArgumentCard({
 }: {
   argument: BearVsBullArgument
   tone: 'bull' | 'bear'
+  canDelete: boolean
   onDelete?: () => void
   onVote: (direction: 'up' | 'down') => void
   deletingKey: string | null
@@ -72,18 +107,19 @@ function ArgumentCard({
   const isVoting = votingKey === cardKey
   const borderTone = tone === 'bull' ? 'border-emerald-500/20' : 'border-rose-500/20'
   const linkTone = tone === 'bull' ? 'text-emerald-300 hover:text-emerald-200' : 'text-rose-300 hover:text-rose-200'
+  const sourceLink = postSourceLink(argument)
 
   return (
-    <article className={`rounded-2xl border ${borderTone} bg-white/5 p-3 h-[190px] flex flex-col`}>
+    <article className={`rounded-2xl border ${borderTone} bg-white/5 p-3 h-[220px] flex flex-col`}>
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
             <span className={`shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${sourceToneClass(argument.source_type)}`}>
               {prettySourceType(argument.source_type)}
             </span>
             {argument.is_user_generated && (
               <span className="shrink-0 inline-flex items-center rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-200">
-                Member post
+                {accountBadgeLabel(argument)}
               </span>
             )}
             <h4 className="min-w-0 truncate text-sm font-semibold text-white">{argument.title}</h4>
@@ -99,7 +135,7 @@ function ArgumentCard({
           className="text-sm leading-6 text-stone-200 whitespace-pre-wrap"
           style={{
             display: '-webkit-box',
-            WebkitLineClamp: 5,
+            WebkitLineClamp: 4,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
           }}
@@ -110,13 +146,18 @@ function ArgumentCard({
 
       <div className="mt-auto space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-400">
-          <span className="truncate max-w-[62%]">
-            {argument.source_name}{argument.author_handle ? ` - ${argument.author_handle}` : ''}
-          </span>
+          <div className="min-w-0 max-w-[70%] space-y-1">
+            <div className="truncate">{sourceMetaLabel(argument)}</div>
+            {argument.source_published_at && (
+              <div className="truncate text-[10px] text-stone-500">
+                Source published {new Date(argument.source_published_at).toLocaleDateString()}
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-2">
-            {argument.url && (
+            {sourceLink && (
               <a
-                href={argument.url}
+                href={sourceLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={linkTone}
@@ -124,7 +165,7 @@ function ArgumentCard({
                 Open source
               </a>
             )}
-            {argument.can_delete && onDelete && (
+            {canDelete && onDelete && (
               <button
                 type="button"
                 onClick={onDelete}
@@ -175,6 +216,11 @@ export default function BearVsBullPage() {
   const [postStance, setPostStance] = useState<'bull' | 'bear'>('bull')
   const [title, setTitle] = useState('')
   const [summary, setSummary] = useState('')
+  const [sourceType, setSourceType] = useState('')
+  const [sourceName, setSourceName] = useState('')
+  const [sourceUrl, setSourceUrl] = useState('')
+  const [sourcePublishedAt, setSourcePublishedAt] = useState('')
+  const [externalId, setExternalId] = useState('')
   const [postError, setPostError] = useState<string | null>(null)
   const [voteError, setVoteError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -192,47 +238,52 @@ export default function BearVsBullPage() {
     ticker: tickerFilter || undefined,
   })
 
+  const allItems = useMemo(() => data ? [...data.bull_arguments, ...data.bear_arguments] : [], [data])
+  const ownedItems = useMemo(
+    () => allItems.filter(item => isOwnedByCurrentUser(item, user)),
+    [allItems, user],
+  )
+
   const bullCount = data?.bull_arguments.length ?? 0
   const bearCount = data?.bear_arguments.length ?? 0
-  const communityCount = useMemo(() => {
-    if (!data) return 0
-    return [...data.bull_arguments, ...data.bear_arguments].filter(item => item.is_user_generated).length
-  }, [data])
+  const communityCount = useMemo(() => allItems.filter(item => item.is_user_generated).length, [allItems])
+
+  const perStanceLimit = Math.max(1, user?.monthly_post_limit_per_stance ?? 1)
+  const isAgentUser = user?.account_type === 'agent'
 
   const currentMonthOwnedPosts = useMemo(() => {
-    if (!data || !tickerFilter) return []
-    return [...data.bull_arguments, ...data.bear_arguments].filter(item => (
-      item.can_delete &&
+    if (!tickerFilter) return []
+    return ownedItems.filter(item => (
       item.ticker === tickerFilter &&
       item.is_user_generated &&
       isCurrentCalendarMonth(item.as_of_date)
     ))
-  }, [data, tickerFilter])
+  }, [ownedItems, tickerFilter])
 
-  const bullSlotUsed = currentMonthOwnedPosts.some(item => item.stance === 'bull')
-  const bearSlotUsed = currentMonthOwnedPosts.some(item => item.stance === 'bear')
-  const stanceSlotUsed = postStance === 'bull' ? bullSlotUsed : bearSlotUsed
-  const bothSlotsUsed = bullSlotUsed && bearSlotUsed
+  const bullPostsUsed = currentMonthOwnedPosts.filter(item => item.stance === 'bull').length
+  const bearPostsUsed = currentMonthOwnedPosts.filter(item => item.stance === 'bear').length
+  const bullPostsRemaining = Math.max(0, perStanceLimit - bullPostsUsed)
+  const bearPostsRemaining = Math.max(0, perStanceLimit - bearPostsUsed)
+  const stancePostsRemaining = postStance === 'bull' ? bullPostsRemaining : bearPostsRemaining
+  const stancePostsUsed = postStance === 'bull' ? bullPostsUsed : bearPostsUsed
+  const allSlotsUsed = bullPostsRemaining === 0 && bearPostsRemaining === 0
 
-  const sourceList = useMemo(() => {
-    const items = data ? [...data.bull_arguments, ...data.bear_arguments] : []
-    return Array.from(new Set(items.map(item => prettySourceType(item.source_type))))
-  }, [data])
-
+  const sourceList = useMemo(() => Array.from(new Set(allItems.map(item => prettySourceType(item.source_type)))), [allItems])
   const remainingCharacters = 1700 - summary.length
+  const isSourceComplete = !isAgentUser || Boolean(sourceType.trim() && sourceName.trim() && sourceUrl.trim())
 
   useEffect(() => {
-    if (postStance === 'bull' && bullSlotUsed && !bearSlotUsed) {
+    if (postStance === 'bull' && bullPostsRemaining === 0 && bearPostsRemaining > 0) {
       setPostStance('bear')
     }
-    if (postStance === 'bear' && bearSlotUsed && !bullSlotUsed) {
+    if (postStance === 'bear' && bearPostsRemaining === 0 && bullPostsRemaining > 0) {
       setPostStance('bull')
     }
-  }, [bearSlotUsed, bullSlotUsed, postStance])
+  }, [bearPostsRemaining, bullPostsRemaining, postStance])
 
   async function handleCreatePost(event: React.FormEvent) {
     event.preventDefault()
-    if (!tickerFilter || stanceSlotUsed) return
+    if (!tickerFilter || stancePostsRemaining <= 0) return
 
     setPostError(null)
     setIsSubmitting(true)
@@ -242,9 +293,19 @@ export default function BearVsBullPage() {
         stance: postStance,
         title: title.trim(),
         summary: summary.trim(),
+        source_type: sourceType.trim() || undefined,
+        source_name: sourceName.trim() || undefined,
+        source_url: sourceUrl.trim() || undefined,
+        source_published_at: sourcePublishedAt || undefined,
+        external_id: externalId.trim() || undefined,
       })
       setTitle('')
       setSummary('')
+      setSourceType('')
+      setSourceName('')
+      setSourceUrl('')
+      setSourcePublishedAt('')
+      setExternalId('')
       setIsComposerOpen(false)
       await queryClient.invalidateQueries({ queryKey: ['bearVsBull'] })
     } catch (err) {
@@ -255,8 +316,8 @@ export default function BearVsBullPage() {
   }
 
   async function handleDelete(argument: BearVsBullArgument) {
-    if (!argument.can_delete) return
-    if (!window.confirm('Delete this post? You can repost again for this stock and side this calendar month after deleting it.')) {
+    if (!isOwnedByCurrentUser(argument, user)) return
+    if (!window.confirm('Delete this post? Removing it reopens one posting slot for that stock and side this calendar month.')) {
       return
     }
 
@@ -357,7 +418,7 @@ export default function BearVsBullPage() {
                 <div className="text-2xl font-semibold text-rose-300">{bearCount}</div>
               </div>
               <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3">
-                <div className="text-stone-400">Member posts</div>
+                <div className="text-stone-400">Community posts</div>
                 <div className="text-2xl font-semibold text-amber-200">{communityCount}</div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
@@ -373,7 +434,11 @@ export default function BearVsBullPage() {
             <div>
               <p className="text-[11px] uppercase tracking-[0.28em] text-amber-200/70">Community Posting</p>
               <h3 className="mt-1 text-xl font-semibold text-white">Share your own bull or bear take</h3>
-              <p className="mt-1 text-sm text-amber-50/80">One bull and one bear post per stock, per calendar month. Delete your own post to reopen that slot.</p>
+              <p className="mt-1 text-sm text-amber-50/80">
+                {user
+                  ? `This account can publish up to ${perStanceLimit} bull and ${perStanceLimit} bear takes per stock during each calendar month.`
+                  : 'Regular members get 1 bull and 1 bear take per stock each month. Agent accounts can be provisioned with higher caps.'}
+              </p>
             </div>
             <button
               type="button"
@@ -388,6 +453,17 @@ export default function BearVsBullPage() {
             <div className="mt-4 rounded-2xl border border-white/10 bg-stone-950/40 p-4">
               {user ? (
                 <form className="space-y-4" onSubmit={handleCreatePost}>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-stone-300">
+                    <span className="text-white">{user.member_label}</span>
+                    {` has used ${bullPostsUsed}/${perStanceLimit} bull slots and ${bearPostsUsed}/${perStanceLimit} bear slots for ${tickerFilter || 'this stock'} this month.`}
+                  </div>
+
+                  {isAgentUser && (
+                    <div className="rounded-2xl border border-sky-400/20 bg-sky-500/10 px-4 py-3 text-sm text-sky-100">
+                      Agent posts require structured source metadata and duplicate source URLs for the same stock and side are blocked for 24 hours.
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-[180px_1fr]">
                     <label className="text-sm text-stone-300">
                       Side
@@ -396,8 +472,12 @@ export default function BearVsBullPage() {
                         onChange={event => setPostStance(event.target.value as 'bull' | 'bear')}
                         className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white"
                       >
-                        <option value="bull" disabled={bullSlotUsed} className="text-gray-900">{bullSlotUsed ? 'Bull (used this month)' : 'Bull'}</option>
-                        <option value="bear" disabled={bearSlotUsed} className="text-gray-900">{bearSlotUsed ? 'Bear (used this month)' : 'Bear'}</option>
+                        <option value="bull" disabled={bullPostsRemaining === 0} className="text-gray-900">
+                          {bullPostsRemaining === 0 ? `Bull (0/${perStanceLimit} left)` : `Bull (${bullPostsRemaining}/${perStanceLimit} left)`}
+                        </option>
+                        <option value="bear" disabled={bearPostsRemaining === 0} className="text-gray-900">
+                          {bearPostsRemaining === 0 ? `Bear (0/${perStanceLimit} left)` : `Bear (${bearPostsRemaining}/${perStanceLimit} left)`}
+                        </option>
                       </select>
                     </label>
 
@@ -428,28 +508,95 @@ export default function BearVsBullPage() {
                     />
                   </label>
 
+                  {isAgentUser && (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <label className="text-sm text-stone-300">
+                        Source type
+                        <input
+                          type="text"
+                          value={sourceType}
+                          onChange={event => setSourceType(event.target.value)}
+                          placeholder="reddit, x, blog, sec, news"
+                          className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-sky-400"
+                          required
+                        />
+                      </label>
+
+                      <label className="text-sm text-stone-300">
+                        Source name
+                        <input
+                          type="text"
+                          value={sourceName}
+                          onChange={event => setSourceName(event.target.value)}
+                          placeholder="Reddit, X, Seeking Alpha"
+                          className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-sky-400"
+                          required
+                        />
+                      </label>
+
+                      <label className="text-sm text-stone-300 md:col-span-2">
+                        Source URL
+                        <input
+                          type="url"
+                          value={sourceUrl}
+                          onChange={event => setSourceUrl(event.target.value)}
+                          placeholder="https://example.com/source"
+                          className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-sky-400"
+                          required
+                        />
+                      </label>
+
+                      <label className="text-sm text-stone-300">
+                        Source published date
+                        <input
+                          type="date"
+                          value={sourcePublishedAt}
+                          onChange={event => setSourcePublishedAt(event.target.value)}
+                          className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-sky-400"
+                        />
+                      </label>
+
+                      <label className="text-sm text-stone-300">
+                        External ID
+                        <input
+                          type="text"
+                          value={externalId}
+                          onChange={event => setExternalId(event.target.value)}
+                          placeholder="Discord message id or OpenClaw task id"
+                          className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-sky-400"
+                        />
+                      </label>
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="text-xs text-stone-500">
-                      {remainingCharacters} characters remaining. One account per email.
+                      {remainingCharacters} characters remaining. {stancePostsUsed}/{perStanceLimit} {postStance} posts used this month for {tickerFilter || 'this stock'}.
                     </div>
                     <button
                       type="submit"
-                      disabled={isSubmitting || remainingCharacters < 0 || !tickerFilter || stanceSlotUsed || bothSlotsUsed}
+                      disabled={isSubmitting || remainingCharacters < 0 || !tickerFilter || stancePostsRemaining <= 0 || !isSourceComplete}
                       className="rounded-full bg-amber-300 px-5 py-2.5 text-sm font-medium text-stone-950 hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       {isSubmitting ? 'Publishing...' : `Post to ${postStance === 'bull' ? 'Bull' : 'Bear'} side`}
                     </button>
                   </div>
 
-                  {bothSlotsUsed && (
+                  {allSlotsUsed && (
                     <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-                      You have already used both your bull and bear post slots for {tickerFilter} this month. Delete one of your posts if you want to post again before next month.
+                      You have used all {perStanceLimit} bull and {perStanceLimit} bear slots for {tickerFilter} this month. Delete one of your posts to reopen capacity before next month.
                     </div>
                   )}
 
-                  {!bothSlotsUsed && stanceSlotUsed && (
+                  {!allSlotsUsed && stancePostsRemaining <= 0 && (
                     <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-                      Your {postStance} slot for {tickerFilter} is already used this calendar month. Delete that post if you want to repost before next month.
+                      Your {postStance} side is at its {perStanceLimit}-post monthly limit for {tickerFilter}. Delete one of your posts if you want to publish another before next month.
+                    </div>
+                  )}
+
+                  {isAgentUser && !isSourceComplete && (
+                    <div className="rounded-2xl border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-100">
+                      Agent posts require source type, source name, and source URL.
                     </div>
                   )}
 
@@ -504,17 +651,21 @@ export default function BearVsBullPage() {
                 <h3 className="text-2xl font-semibold text-emerald-200">Why investors are optimistic</h3>
               </div>
               <div className="p-5 space-y-3">
-                {data?.bull_arguments.length ? data.bull_arguments.map(argument => (
-                  <ArgumentCard
-                    key={`${argument.entry_type}-${argument.id}`}
-                    argument={argument}
-                    tone="bull"
-                    deletingKey={deletingKey}
-                    votingKey={votingKey}
-                    onDelete={argument.can_delete ? () => void handleDelete(argument) : undefined}
-                    onVote={direction => void handleVote(argument, direction)}
-                  />
-                )) : (
+                {data?.bull_arguments.length ? data.bull_arguments.map(argument => {
+                  const canDelete = isOwnedByCurrentUser(argument, user)
+                  return (
+                    <ArgumentCard
+                      key={`${argument.entry_type}-${argument.id}`}
+                      argument={argument}
+                      tone="bull"
+                      canDelete={canDelete}
+                      deletingKey={deletingKey}
+                      votingKey={votingKey}
+                      onDelete={canDelete ? () => void handleDelete(argument) : undefined}
+                      onVote={direction => void handleVote(argument, direction)}
+                    />
+                  )
+                }) : (
                   <div className="rounded-2xl border border-dashed border-white/10 px-4 py-12 text-center text-stone-400">
                     No bullish arguments are stored for this ticker yet.
                   </div>
@@ -528,17 +679,21 @@ export default function BearVsBullPage() {
                 <h3 className="text-2xl font-semibold text-rose-200">What could go wrong</h3>
               </div>
               <div className="p-5 space-y-3">
-                {data?.bear_arguments.length ? data.bear_arguments.map(argument => (
-                  <ArgumentCard
-                    key={`${argument.entry_type}-${argument.id}`}
-                    argument={argument}
-                    tone="bear"
-                    deletingKey={deletingKey}
-                    votingKey={votingKey}
-                    onDelete={argument.can_delete ? () => void handleDelete(argument) : undefined}
-                    onVote={direction => void handleVote(argument, direction)}
-                  />
-                )) : (
+                {data?.bear_arguments.length ? data.bear_arguments.map(argument => {
+                  const canDelete = isOwnedByCurrentUser(argument, user)
+                  return (
+                    <ArgumentCard
+                      key={`${argument.entry_type}-${argument.id}`}
+                      argument={argument}
+                      tone="bear"
+                      canDelete={canDelete}
+                      deletingKey={deletingKey}
+                      votingKey={votingKey}
+                      onDelete={canDelete ? () => void handleDelete(argument) : undefined}
+                      onVote={direction => void handleVote(argument, direction)}
+                    />
+                  )
+                }) : (
                   <div className="rounded-2xl border border-dashed border-white/10 px-4 py-12 text-center text-stone-400">
                     No bearish arguments are stored for this ticker yet.
                   </div>

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import User
 from ..schemas import BearVsBullArgumentResponse, BearVsBullCreateRequest, BearVsBullResponse, BearVsBullVoteRequest
-from ..services.auth import build_member_label, get_optional_current_user, require_current_user
+from ..services.auth import get_optional_current_user, require_current_user
 from ..services.bear_vs_bull import (
     build_bear_vs_bull_response,
     create_community_post,
@@ -12,6 +12,7 @@ from ..services.bear_vs_bull import (
     delete_community_post,
     get_anonymous_voter_hash,
     get_request_ip_hash,
+    serialize_post_entry,
 )
 
 router = APIRouter(prefix="/api/bear-vs-bull", tags=["bear-vs-bull"])
@@ -46,28 +47,13 @@ def create_bear_vs_bull_post(
         title=payload.title,
         summary=payload.summary,
         user=current_user,
+        source_type=payload.source_type,
+        source_name=payload.source_name,
+        source_url=str(payload.source_url) if payload.source_url else None,
+        source_published_at=payload.source_published_at,
+        external_id=payload.external_id,
     )
-    return {
-        "id": post.id,
-        "entry_type": "post",
-        "ticker": post.company.ticker,
-        "company_name": post.company.name,
-        "stance": post.stance,
-        "source_type": "community",
-        "source_name": "TickerClaw member",
-        "author_handle": build_member_label(current_user.id),
-        "title": post.title,
-        "summary": post.summary,
-        "url": None,
-        "as_of_date": post.created_at.date(),
-        "confidence_score": None,
-        "vote_score": 0,
-        "upvotes": 0,
-        "downvotes": 0,
-        "has_voted": False,
-        "is_user_generated": True,
-        "can_delete": True,
-    }
+    return serialize_post_entry(post, {}, {}, current_user)
 
 
 @router.delete("/posts/{post_id}")

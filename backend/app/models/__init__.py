@@ -1,3 +1,4 @@
+from .agent_api_key import AgentApiKey
 from .company import Company
 from .filing import Filing
 from .interest_log import InterestLog
@@ -10,6 +11,7 @@ from .user import User
 from .auth_session import AuthSession
 
 __all__ = [
+    "AgentApiKey",
     "Company",
     "Filing",
     "InterestLog",
