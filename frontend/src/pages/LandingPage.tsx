@@ -15,7 +15,12 @@ export default function LandingPage() {
             </svg>
             TickerClaw
           </h1>
-          <AuthButton variant="dark" />
+          <div className="flex items-center gap-4">
+            <Link to="/top-25" className="text-sm font-medium text-amber-300 hover:text-amber-200">
+              Top 25
+            </Link>
+            <AuthButton variant="dark" />
+          </div>
         </div>
       </header>
 

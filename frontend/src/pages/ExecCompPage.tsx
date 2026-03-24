@@ -68,6 +68,9 @@ export default function ExecCompPage() {
             </Link>
             <span className="text-gray-300">|</span>
             <h1 className="text-base sm:text-xl font-bold text-gray-900">Executive Compensation</h1>
+            <Link to="/top-25" className="text-xs sm:text-sm font-medium text-blue-600 hover:text-blue-800">
+              Top 25
+            </Link>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">

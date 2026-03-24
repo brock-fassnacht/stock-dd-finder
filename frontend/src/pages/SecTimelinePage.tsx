@@ -122,6 +122,9 @@ export default function SecTimelinePage() {
             </Link>
             <span className="text-white/20">|</span>
             <h1 className="text-base sm:text-xl font-bold text-white">SEC Filings Timeline</h1>
+            <Link to="/top-25" className="text-xs sm:text-sm font-medium text-amber-300 hover:text-amber-200">
+              Top 25
+            </Link>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-4">
