@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { createBearVsBullPost, deleteBearVsBullPost, voteBearVsBull } from '../api'
@@ -101,6 +101,163 @@ function sourceMetaLabel(argument: BearVsBullArgument) {
     pieces.push(argument.author_handle)
   }
   return pieces.filter(Boolean).join(' - ')
+}
+
+type ThemedSelectOption = {
+  value: string
+  label: string
+  description?: string
+  disabled?: boolean
+  accent?: 'amber' | 'emerald' | 'rose'
+}
+
+function optionToneClasses(accent: ThemedSelectOption['accent'], selected: boolean) {
+  if (selected) {
+    switch (accent) {
+      case 'emerald':
+        return 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
+      case 'rose':
+        return 'border-rose-400/30 bg-rose-500/12 text-rose-100'
+      default:
+        return 'border-amber-300/30 bg-amber-500/12 text-amber-50'
+    }
+  }
+
+  switch (accent) {
+    case 'emerald':
+      return 'border-transparent text-stone-200 hover:border-emerald-400/20 hover:bg-emerald-500/10'
+    case 'rose':
+      return 'border-transparent text-stone-200 hover:border-rose-400/20 hover:bg-rose-500/10'
+    default:
+      return 'border-transparent text-stone-200 hover:border-amber-300/20 hover:bg-amber-500/10'
+  }
+}
+
+function ThemedSelect({
+  id,
+  value,
+  onChange,
+  options,
+  placeholder = 'Select an option',
+  containerClassName = '',
+  buttonClassName = '',
+}: {
+  id?: string
+  value: string
+  onChange: (value: string) => void
+  options: ThemedSelectOption[]
+  placeholder?: string
+  containerClassName?: string
+  buttonClassName?: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const selectedOption = options.find(option => option.value === value) ?? null
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    function handlePointerDown(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isOpen])
+
+  return (
+    <div ref={containerRef} className={`relative ${containerClassName}`}>
+      <button
+        id={id}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen(open => !open)}
+        className={`w-full rounded-2xl border border-amber-300/18 bg-[linear-gradient(135deg,rgba(245,158,11,0.14),rgba(28,25,23,0.96)_38%,rgba(190,24,93,0.18))] px-4 py-3 text-left text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_12px_32px_rgba(12,10,9,0.26)] outline-none transition duration-200 hover:border-amber-200/28 focus:border-amber-300/45 focus:ring-2 focus:ring-amber-300/20 ${buttonClassName}`}
+      >
+        <span className="flex min-w-0 items-center justify-between gap-3">
+          <span className="min-w-0">
+            <span className="block truncate font-medium text-amber-50">
+              {selectedOption?.label || placeholder}
+            </span>
+            {selectedOption?.description && (
+              <span className="mt-0.5 block truncate text-[11px] text-stone-400">
+                {selectedOption.description}
+              </span>
+            )}
+          </span>
+          <svg
+            className={`h-4 w-4 shrink-0 text-amber-200/75 transition ${isOpen ? 'rotate-180 text-amber-100' : ''}`}
+            viewBox="0 0 20 20"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M5 7.5L10 12.5L15 7.5"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 overflow-hidden rounded-3xl border border-amber-300/16 bg-stone-950/96 shadow-[0_24px_60px_rgba(12,10,9,0.55)] backdrop-blur-xl">
+          <div className="max-h-80 space-y-1 overflow-y-auto p-2 dark-scrollbar" role="listbox" aria-labelledby={id}>
+            {options.map(option => {
+              const isSelected = option.value === value
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  disabled={option.disabled}
+                  onClick={() => {
+                    if (option.disabled) return
+                    onChange(option.value)
+                    setIsOpen(false)
+                  }}
+                  className={`flex w-full items-start justify-between gap-3 rounded-2xl border px-3 py-3 text-left transition ${
+                    option.disabled
+                      ? 'cursor-not-allowed border-transparent bg-white/[0.03] text-stone-500'
+                      : optionToneClasses(option.accent, isSelected)
+                  }`}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">{option.label}</span>
+                    {option.description && (
+                      <span className="mt-0.5 block truncate text-[11px] text-stone-400">
+                        {option.description}
+                      </span>
+                    )}
+                  </span>
+                  <span className={`shrink-0 text-[10px] uppercase tracking-[0.2em] ${isSelected ? 'text-amber-200' : 'text-stone-500'}`}>
+                    {option.disabled ? 'Full' : isSelected ? 'Live' : ''}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function ArgumentCard({
@@ -292,6 +449,37 @@ export default function BearVsBullPage() {
   const stancePostsRemaining = postStance === 'bull' ? bullPostsRemaining : bearPostsRemaining
   const stancePostsUsed = postStance === 'bull' ? bullPostsUsed : bearPostsUsed
   const allSlotsUsed = bullPostsRemaining === 0 && bearPostsRemaining === 0
+  const tickerOptions = useMemo<ThemedSelectOption[]>(
+    () => (companies ?? []).map(company => ({
+      value: company.ticker,
+      label: company.ticker,
+      description: company.name,
+    })),
+    [companies],
+  )
+  const stanceOptions = useMemo<ThemedSelectOption[]>(
+    () => [
+      {
+        value: 'bull',
+        label: 'Bull',
+        description: bullPostsRemaining === 0
+          ? `No posts left this month`
+          : `${bullPostsRemaining} of ${perStanceLimit} slots remaining`,
+        disabled: bullPostsRemaining === 0,
+        accent: 'emerald',
+      },
+      {
+        value: 'bear',
+        label: 'Bear',
+        description: bearPostsRemaining === 0
+          ? `No posts left this month`
+          : `${bearPostsRemaining} of ${perStanceLimit} slots remaining`,
+        disabled: bearPostsRemaining === 0,
+        accent: 'rose',
+      },
+    ],
+    [bearPostsRemaining, bullPostsRemaining, perStanceLimit],
+  )
 
   const sourceList = useMemo(() => Array.from(new Set(allItems.map(item => prettySourceType(item.source_type)))), [allItems])
   const remainingCharacters = 1700 - summary.length
@@ -403,18 +591,15 @@ export default function BearVsBullPage() {
             <label className="text-sm text-stone-300" htmlFor="ticker-filter">
               Stock
             </label>
-            <select
+            <ThemedSelect
               id="ticker-filter"
               value={tickerFilter}
-              onChange={e => setTickerFilter(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm text-white min-w-[180px]"
-            >
-              {companies?.map(company => (
-                <option key={company.ticker} value={company.ticker} className="text-gray-900">
-                  {company.ticker} - {company.name}
-                </option>
-              ))}
-            </select>
+              onChange={setTickerFilter}
+              options={tickerOptions}
+              placeholder="Select a stock"
+              containerClassName="min-w-[240px]"
+              buttonClassName="rounded-full py-2.5"
+            />
             <AuthButton variant="dark" />
           </div>
         </div>
@@ -492,18 +677,12 @@ export default function BearVsBullPage() {
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-[180px_1fr]">
                     <label className="text-sm text-stone-300">
                       Side
-                      <select
+                      <ThemedSelect
                         value={postStance}
-                        onChange={event => setPostStance(event.target.value as 'bull' | 'bear')}
-                        className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white"
-                      >
-                        <option value="bull" disabled={bullPostsRemaining === 0} className="text-gray-900">
-                          {bullPostsRemaining === 0 ? `Bull (0/${perStanceLimit} left)` : `Bull (${bullPostsRemaining}/${perStanceLimit} left)`}
-                        </option>
-                        <option value="bear" disabled={bearPostsRemaining === 0} className="text-gray-900">
-                          {bearPostsRemaining === 0 ? `Bear (0/${perStanceLimit} left)` : `Bear (${bearPostsRemaining}/${perStanceLimit} left)`}
-                        </option>
-                      </select>
+                        onChange={value => setPostStance(value as 'bull' | 'bear')}
+                        options={stanceOptions}
+                        containerClassName="mt-2"
+                      />
                     </label>
 
                     <label className="text-sm text-stone-300">
