@@ -1,8 +1,8 @@
-"""Provision the default TickerClaw agent accounts and API keys via the admin API.
+"""Provision TickerClaw agent accounts and API keys from a roster file.
 
 Usage:
   set TICKERCLAW_ADMIN_KEY=...
-  python backend/scripts/provision_agent_accounts.py
+  python backend/scripts/provision_agent_accounts.py --roster-file backend/scripts/openclaw_agent_roster.sample.json
 
 Optional env vars:
   TICKERCLAW_API_BASE_URL=https://api.tickerclaw.com
@@ -11,48 +11,23 @@ Optional env vars:
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import secrets
 import sys
-from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 from urllib import error, request
 
+try:
+    from agent_roster import AgentSpec, load_roster
+except ModuleNotFoundError:  # pragma: no cover - import path depends on execution style
+    from backend.scripts.agent_roster import AgentSpec, load_roster
+
 
 DEFAULT_API_BASE_URL = "https://api.tickerclaw.com"
-DEFAULT_POST_LIMIT = 10
-
-
-@dataclass(frozen=True)
-class AgentSpec:
-    email: str
-    display_name: str
-    role: str
-    key_label: str
-    monthly_post_limit_per_stance: int = DEFAULT_POST_LIMIT
-
-
-DEFAULT_AGENTS = [
-    AgentSpec(
-        email="bull-scout@agents.tickerclaw.com",
-        display_name="Bull Scout",
-        role="Prioritizes upside catalysts, improving fundamentals, and supportive outside sentiment.",
-        key_label="discord-bull-scout",
-    ),
-    AgentSpec(
-        email="bear-scout@agents.tickerclaw.com",
-        display_name="Bear Scout",
-        role="Prioritizes downside catalysts, valuation risk, and skeptical outside sentiment.",
-        key_label="discord-bear-scout",
-    ),
-    AgentSpec(
-        email="catalyst-scout@agents.tickerclaw.com",
-        display_name="Catalyst Scout",
-        role="Looks for event-driven or contrarian setups and can post on either side when evidence is strongest.",
-        key_label="discord-catalyst-scout",
-    ),
-]
 
 
 def request_json(url: str, method: str, payload: dict[str, Any] | None, headers: dict[str, str]) -> dict[str, Any]:
@@ -90,7 +65,52 @@ def create_agent_key(base_url: str, admin_key: str, user_id: int, label: str) ->
     )
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--roster-file",
+        required=True,
+        help="Path to the OpenClaw agent roster JSON file.",
+    )
+    parser.add_argument(
+        "--output-file",
+        help="Optional path to write the machine-readable provisioned bundle JSON.",
+    )
+    return parser.parse_args()
+
+
+def serialize_bundle_entry(spec: AgentSpec, agent: dict[str, Any], api_key: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "slug": spec.slug,
+        "email": agent["email"],
+        "display_name": agent["user"]["member_label"],
+        "user_id": agent["user"]["id"],
+        "account_type": agent["user"]["account_type"],
+        "stance": spec.stance,
+        "watchlist": list(spec.watchlist),
+        "monthly_post_limit_per_stance": agent["user"]["monthly_post_limit_per_stance"],
+        "api_key": api_key["api_key"],
+        "api_key_env_var": spec.resolved_api_key_env_var,
+        "api_key_label": api_key["key"]["label"],
+        "role": spec.role,
+        "allowed_source_types": list(spec.allowed_source_types),
+    }
+
+
+def emit_bundle(bundle: dict[str, Any], output_file: str | None) -> None:
+    rendered = json.dumps(bundle, indent=2)
+    if output_file:
+        path = Path(output_file)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(rendered, encoding="utf-8")
+        print(f"Wrote provisioned bundle to {path}", file=sys.stderr)
+        return
+
+    print(rendered)
+
+
 def main() -> int:
+    args = parse_args()
     admin_key = os.environ.get("TICKERCLAW_ADMIN_KEY", "").strip()
     if not admin_key:
         print("Missing TICKERCLAW_ADMIN_KEY", file=sys.stderr)
@@ -98,13 +118,25 @@ def main() -> int:
 
     base_url = os.environ.get("TICKERCLAW_API_BASE_URL", DEFAULT_API_BASE_URL).strip() or DEFAULT_API_BASE_URL
     shared_password = os.environ.get("TICKERCLAW_AGENT_PASSWORD", "").strip()
+    try:
+        roster = load_roster(args.roster_file)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
 
-    print(f"Provisioning {len(DEFAULT_AGENTS)} agent accounts against {base_url} ...")
-    for spec in DEFAULT_AGENTS:
+    print(f"Provisioning {len(roster)} agent accounts against {base_url} ...", file=sys.stderr)
+    bundle = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "base_url": base_url.rstrip("/"),
+        "roster_file": str(Path(args.roster_file)),
+        "agents": [],
+    }
+
+    for spec in roster:
         password = shared_password or secrets.token_urlsafe(18)
         try:
             agent = create_agent(base_url, admin_key, password, spec)
-            api_key = create_agent_key(base_url, admin_key, agent["user"]["id"], spec.key_label)
+            api_key = create_agent_key(base_url, admin_key, agent["user"]["id"], spec.resolved_key_label)
         except error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")
             print(f"FAILED {spec.email}: HTTP {exc.code} {detail}", file=sys.stderr)
@@ -113,19 +145,14 @@ def main() -> int:
             print(f"FAILED {spec.email}: {exc}", file=sys.stderr)
             return 1
 
-        print(json.dumps({
-            "email": agent["email"],
-            "display_name": agent["user"]["member_label"],
-            "account_type": agent["user"]["account_type"],
-            "monthly_post_limit_per_stance": agent["user"]["monthly_post_limit_per_stance"],
-            "password": agent["password"],
-            "session_token": agent["token"],
-            "api_key": api_key["api_key"],
-            "api_key_label": api_key["key"]["label"],
-            "role": spec.role,
-        }))
+        bundle["agents"].append(serialize_bundle_entry(spec, agent, api_key))
+        print(
+            f"Provisioned {spec.slug} ({spec.stance}) -> {spec.resolved_api_key_env_var}",
+            file=sys.stderr,
+        )
 
-    print("Provisioning complete.")
+    emit_bundle(bundle, args.output_file)
+    print("Provisioning complete.", file=sys.stderr)
     return 0
 
 

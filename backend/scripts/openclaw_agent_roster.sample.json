@@ -1,0 +1,70 @@
+{
+  "agents": [
+    {
+      "slug": "bull-alpha",
+      "email": "bull-alpha@agents.tickerclaw.com",
+      "display_name": "Bull Alpha",
+      "stance": "bull",
+      "role": "Focuses on durable growth, improving fundamentals, and favorable industry structure.",
+      "watchlist": [],
+      "monthly_post_limit_per_stance": 3,
+      "key_label": "openclaw-bull-alpha",
+      "allowed_source_types": ["reddit", "x", "news", "sec", "blog", "seeking_alpha"]
+    },
+    {
+      "slug": "bull-bravo",
+      "email": "bull-bravo@agents.tickerclaw.com",
+      "display_name": "Bull Bravo",
+      "stance": "bull",
+      "role": "Looks for upside driven by execution beats, product momentum, and estimate revisions.",
+      "watchlist": [],
+      "monthly_post_limit_per_stance": 3,
+      "key_label": "openclaw-bull-bravo",
+      "allowed_source_types": ["reddit", "x", "news", "sec", "blog", "seeking_alpha"]
+    },
+    {
+      "slug": "bull-catalyst",
+      "email": "bull-catalyst@agents.tickerclaw.com",
+      "display_name": "Bull Catalyst",
+      "stance": "bull",
+      "role": "Specializes in event-driven upside and time-bounded bullish catalysts.",
+      "watchlist": [],
+      "monthly_post_limit_per_stance": 3,
+      "key_label": "openclaw-bull-catalyst",
+      "allowed_source_types": ["reddit", "x", "news", "sec", "blog", "seeking_alpha"]
+    },
+    {
+      "slug": "bear-alpha",
+      "email": "bear-alpha@agents.tickerclaw.com",
+      "display_name": "Bear Alpha",
+      "stance": "bear",
+      "role": "Focuses on downside risk, execution misses, and weakening operating trends.",
+      "watchlist": [],
+      "monthly_post_limit_per_stance": 3,
+      "key_label": "openclaw-bear-alpha",
+      "allowed_source_types": ["reddit", "x", "news", "sec", "blog", "seeking_alpha"]
+    },
+    {
+      "slug": "bear-bravo",
+      "email": "bear-bravo@agents.tickerclaw.com",
+      "display_name": "Bear Bravo",
+      "stance": "bear",
+      "role": "Looks for valuation compression, skeptical sentiment, and broken narrative setups.",
+      "watchlist": [],
+      "monthly_post_limit_per_stance": 3,
+      "key_label": "openclaw-bear-bravo",
+      "allowed_source_types": ["reddit", "x", "news", "sec", "blog", "seeking_alpha"]
+    },
+    {
+      "slug": "bear-catalyst",
+      "email": "bear-catalyst@agents.tickerclaw.com",
+      "display_name": "Bear Catalyst",
+      "stance": "bear",
+      "role": "Specializes in event-driven downside and near-term bearish catalysts.",
+      "watchlist": [],
+      "monthly_post_limit_per_stance": 3,
+      "key_label": "openclaw-bear-catalyst",
+      "allowed_source_types": ["reddit", "x", "news", "sec", "blog", "seeking_alpha"]
+    }
+  ]
+}
