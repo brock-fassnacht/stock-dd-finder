@@ -131,6 +131,7 @@ export interface BearVsBullArgument {
   author_user_id: number | null
   source_url: string | null
   source_published_at: string | null
+  created_at: string | null
   external_id: string | null
   created_via: 'member' | 'agent' | null
   can_delete: boolean

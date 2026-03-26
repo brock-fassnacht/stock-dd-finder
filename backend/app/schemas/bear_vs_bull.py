@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, time, timezone
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
@@ -25,7 +25,8 @@ class BearVsBullArgumentResponse(BaseModel):
     author_account_type: str | None = None
     author_user_id: int | None = None
     source_url: str | None = None
-    source_published_at: date | None = None
+    source_published_at: datetime | None = None
+    created_at: datetime | None = None
     external_id: str | None = None
     created_via: str | None = None
     can_delete: bool
@@ -39,7 +40,7 @@ class BearVsBullCreateRequest(BaseModel):
     source_type: str | None = Field(default=None, max_length=40)
     source_name: str | None = Field(default=None, max_length=80)
     source_url: HttpUrl | None = None
-    source_published_at: date | None = None
+    source_published_at: datetime | None = None
     external_id: str | None = Field(default=None, max_length=120)
 
     @field_validator("ticker")
@@ -70,6 +71,25 @@ class BearVsBullCreateRequest(BaseModel):
             return None
         normalized = value.strip()
         return normalized or None
+
+    @field_validator("source_published_at", mode="before")
+    @classmethod
+    def normalize_source_published_at(cls, value):
+        if value in (None, ""):
+            return None
+        if isinstance(value, datetime):
+            return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        if isinstance(value, date):
+            return datetime.combine(value, time.min, tzinfo=timezone.utc)
+        if isinstance(value, str):
+            normalized = value.strip()
+            if not normalized:
+                return None
+            if "T" not in normalized and " " not in normalized:
+                return datetime.combine(date.fromisoformat(normalized), time.min, tzinfo=timezone.utc)
+            parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        return value
 
     @field_validator("external_id")
     @classmethod

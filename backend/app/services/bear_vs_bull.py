@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 import hashlib
 import re
 
@@ -265,7 +265,8 @@ def _serialize_argument(
         "author_account_type": None,
         "author_user_id": None,
         "source_url": argument.url,
-        "source_published_at": argument.as_of_date,
+        "source_published_at": None,
+        "created_at": None,
         "external_id": None,
         "created_via": None,
         "can_delete": False,
@@ -308,6 +309,7 @@ def serialize_post_entry(
         "author_user_id": post.user_id,
         "source_url": source_url,
         "source_published_at": post.source_published_at,
+        "created_at": post.created_at,
         "external_id": post.external_id,
         "created_via": post.created_via,
         "can_delete": bool(current_user and current_user.id == post.user_id),
@@ -398,7 +400,7 @@ def create_community_post(
     source_type: str | None = None,
     source_name: str | None = None,
     source_url: str | None = None,
-    source_published_at: date | None = None,
+    source_published_at: datetime | None = None,
     external_id: str | None = None,
 ) -> BearVsBullPost:
     company = db.query(Company).filter(Company.ticker == ticker.upper().strip()).first()
@@ -448,7 +450,11 @@ def create_community_post(
         source_type=normalized_source_type,
         source_name=normalized_source_name,
         source_url=normalized_source_url,
-        source_published_at=source_published_at,
+        source_published_at=(
+            source_published_at.astimezone(timezone.utc)
+            if source_published_at and source_published_at.tzinfo
+            else source_published_at.replace(tzinfo=timezone.utc) if source_published_at else None
+        ),
         external_id=normalized_external_id,
         created_via="agent" if _agent_requires_sources(user) else "member",
     )

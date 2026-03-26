@@ -143,7 +143,7 @@ def build_prompt(spec: AgentSpec, job: dict[str, Any]) -> str:
         "source_type": "one of the allowed_source_types",
         "source_name": "string",
         "source_url": "https://example.com/source",
-        "source_published_at": "YYYY-MM-DD or omit",
+        "source_published_at": "ISO 8601 timestamp like 2026-03-26T14:30:00Z, or YYYY-MM-DD, or omit",
         "external_id": "leave blank or omit; controller will overwrite deterministically",
     }
     return (
@@ -184,14 +184,24 @@ def normalize_url(value: Any) -> str:
     return normalized
 
 
-def normalize_date(value: Any) -> str | None:
+def normalize_timestamp(value: Any) -> str | None:
     if value in (None, ""):
         return None
     normalized = normalize_text(value)
+    normalized_utc = normalized.replace("Z", "+00:00")
     try:
-        return date.fromisoformat(normalized).isoformat()
-    except ValueError as exc:
-        raise ValueError("source_published_at must be YYYY-MM-DD") from exc
+        parsed = datetime.fromisoformat(normalized_utc)
+    except ValueError:
+        try:
+            parsed_date = date.fromisoformat(normalized)
+        except ValueError as exc:
+            raise ValueError("source_published_at must be ISO 8601 or YYYY-MM-DD") from exc
+        parsed = datetime(parsed_date.year, parsed_date.month, parsed_date.day, tzinfo=timezone.utc)
+    else:
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+
+    return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def deterministic_external_id(spec: AgentSpec, payload: dict[str, Any]) -> str:
@@ -215,7 +225,7 @@ def validate_candidate(
     source_type = normalize_source_type(raw_candidate.get("source_type", ""), spec.allowed_source_types)
     source_name = normalize_text(raw_candidate.get("source_name", ""))
     source_url = normalize_url(raw_candidate.get("source_url", ""))
-    source_published_at = normalize_date(raw_candidate.get("source_published_at"))
+    source_published_at = normalize_timestamp(raw_candidate.get("source_published_at"))
 
     if ticker_hint and ticker != ticker_hint:
         raise ValueError(f"Candidate ticker '{ticker}' did not match the assigned ticker '{ticker_hint}'")

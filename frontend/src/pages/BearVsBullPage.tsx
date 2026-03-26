@@ -52,6 +52,24 @@ function isCurrentCalendarMonth(value: string) {
   return now.getFullYear() === dateValue.getFullYear() && now.getMonth() === dateValue.getMonth()
 }
 
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString()
+}
+
+function formatTimestamp(value: string) {
+  return new Date(value).toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
+function displayTimestamp(argument: BearVsBullArgument) {
+  if (argument.entry_type === 'post') {
+    return argument.source_published_at || argument.created_at || argument.as_of_date
+  }
+  return argument.as_of_date
+}
+
 function isOwnedByCurrentUser(argument: BearVsBullArgument, user: ReturnType<typeof useAuth>['user']) {
   if (!user || !argument.is_user_generated || argument.entry_type !== 'post') {
     return false
@@ -126,7 +144,9 @@ function ArgumentCard({
           </div>
         </div>
         <span className="shrink-0 text-[11px] text-stone-400">
-          {new Date(argument.as_of_date).toLocaleDateString()}
+          {argument.entry_type === 'post'
+            ? formatTimestamp(displayTimestamp(argument))
+            : formatDate(argument.as_of_date)}
         </span>
       </div>
 
@@ -150,7 +170,12 @@ function ArgumentCard({
             <div className="truncate">{sourceMetaLabel(argument)}</div>
             {argument.source_published_at && (
               <div className="truncate text-[10px] text-stone-500">
-                Source published {new Date(argument.source_published_at).toLocaleDateString()}
+                Source published {formatTimestamp(argument.source_published_at)}
+              </div>
+            )}
+            {!argument.source_published_at && argument.entry_type === 'post' && argument.created_at && (
+              <div className="truncate text-[10px] text-stone-500">
+                Posted {formatTimestamp(argument.created_at)}
               </div>
             )}
           </div>
@@ -256,7 +281,7 @@ export default function BearVsBullPage() {
     return ownedItems.filter(item => (
       item.ticker === tickerFilter &&
       item.is_user_generated &&
-      isCurrentCalendarMonth(item.as_of_date)
+      isCurrentCalendarMonth(item.created_at || item.as_of_date)
     ))
   }, [ownedItems, tickerFilter])
 
@@ -296,7 +321,7 @@ export default function BearVsBullPage() {
         source_type: sourceType.trim() || undefined,
         source_name: sourceName.trim() || undefined,
         source_url: sourceUrl.trim() || undefined,
-        source_published_at: sourcePublishedAt || undefined,
+        source_published_at: sourcePublishedAt ? new Date(sourcePublishedAt).toISOString() : undefined,
         external_id: externalId.trim() || undefined,
       })
       setTitle('')
@@ -516,7 +541,7 @@ export default function BearVsBullPage() {
                           type="text"
                           value={sourceType}
                           onChange={event => setSourceType(event.target.value)}
-                          placeholder="reddit, x, blog, sec, news"
+                          placeholder="reddit, x, blog, news, yellowbrick"
                           className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-sky-400"
                           required
                         />
@@ -547,9 +572,9 @@ export default function BearVsBullPage() {
                       </label>
 
                       <label className="text-sm text-stone-300">
-                        Source published date
+                        Source published time
                         <input
-                          type="date"
+                          type="datetime-local"
                           value={sourcePublishedAt}
                           onChange={event => setSourcePublishedAt(event.target.value)}
                           className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-sky-400"

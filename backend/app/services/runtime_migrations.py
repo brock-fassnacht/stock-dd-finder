@@ -11,6 +11,13 @@ def _column_names(inspector, table_name: str) -> set[str]:
     return {column["name"] for column in inspector.get_columns(table_name)}
 
 
+def _column_type_name(inspector, table_name: str, column_name: str) -> str:
+    for column in inspector.get_columns(table_name):
+        if column["name"] == column_name:
+            return str(column["type"]).upper()
+    return ""
+
+
 def ensure_runtime_schema(engine: Engine) -> None:
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
@@ -75,8 +82,27 @@ def ensure_runtime_schema(engine: Engine) -> None:
                 logger.info("Added bear_vs_bull_posts.source_url column")
 
             if "source_published_at" not in post_columns:
-                connection.execute(text("ALTER TABLE bear_vs_bull_posts ADD COLUMN source_published_at DATE"))
+                source_published_at_column_type = (
+                    "TIMESTAMP WITH TIME ZONE"
+                    if engine.dialect.name == "postgresql"
+                    else "DATETIME"
+                )
+                connection.execute(text(
+                    f"ALTER TABLE bear_vs_bull_posts ADD COLUMN source_published_at {source_published_at_column_type}"
+                ))
                 logger.info("Added bear_vs_bull_posts.source_published_at column")
+            else:
+                source_published_at_type = _column_type_name(inspector, "bear_vs_bull_posts", "source_published_at")
+                if engine.dialect.name == "postgresql" and "DATE" in source_published_at_type and "TIME" not in source_published_at_type:
+                    connection.execute(text(
+                        "ALTER TABLE bear_vs_bull_posts "
+                        "ALTER COLUMN source_published_at TYPE TIMESTAMP WITH TIME ZONE "
+                        "USING CASE "
+                        "WHEN source_published_at IS NULL THEN NULL "
+                        "ELSE source_published_at::timestamp AT TIME ZONE 'UTC' "
+                        "END"
+                    ))
+                    logger.info("Converted bear_vs_bull_posts.source_published_at to timestamptz")
 
             if "external_id" not in post_columns:
                 connection.execute(text("ALTER TABLE bear_vs_bull_posts ADD COLUMN external_id VARCHAR(120)"))
