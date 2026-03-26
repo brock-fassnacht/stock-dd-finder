@@ -298,7 +298,7 @@ def serialize_post_entry(
         "title": post.title,
         "summary": post.summary,
         "url": source_url,
-        "as_of_date": post.source_published_at or created_date,
+        "as_of_date": post.source_published_at.date() if post.source_published_at else created_date,
         "confidence_score": None,
         "vote_score": totals["up"] - totals["down"],
         "upvotes": totals["up"],
