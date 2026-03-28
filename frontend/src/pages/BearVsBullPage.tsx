@@ -185,7 +185,7 @@ function ThemedSelect({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         onClick={() => setIsOpen(open => !open)}
-        className={`w-full rounded-2xl border border-amber-300/20 bg-[linear-gradient(135deg,#4b3414_0%,#1c1917_44%,#2a1618_100%)] px-3.5 py-2.5 text-left text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_12px_32px_rgba(12,10,9,0.22)] outline-none transition duration-200 hover:border-amber-200/30 focus:border-amber-300/45 focus:ring-2 focus:ring-amber-300/18 ${buttonClassName}`}
+        className={`w-full rounded-2xl border border-amber-300/20 bg-[linear-gradient(135deg,#4b3414_0%,#1c1917_44%,#2a1618_100%)] py-2.5 pl-5 pr-3.5 text-left text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_12px_32px_rgba(12,10,9,0.22)] outline-none transition duration-200 hover:border-amber-200/30 focus:border-amber-300/45 focus:ring-2 focus:ring-amber-300/18 ${buttonClassName}`}
       >
         <span className="flex min-w-0 items-center justify-between gap-3">
           <span className="min-w-0">
