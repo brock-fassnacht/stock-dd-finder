@@ -185,7 +185,7 @@ function ThemedSelect({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         onClick={() => setIsOpen(open => !open)}
-        className={`w-full rounded-2xl border border-amber-300/18 bg-[linear-gradient(135deg,rgba(245,158,11,0.14),rgba(28,25,23,0.96)_38%,rgba(190,24,93,0.18))] px-4 py-3 text-left text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_12px_32px_rgba(12,10,9,0.26)] outline-none transition duration-200 hover:border-amber-200/28 focus:border-amber-300/45 focus:ring-2 focus:ring-amber-300/20 ${buttonClassName}`}
+        className={`w-full rounded-2xl border border-amber-300/20 bg-[linear-gradient(135deg,#4b3414_0%,#1c1917_44%,#2a1618_100%)] px-3.5 py-2.5 text-left text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_12px_32px_rgba(12,10,9,0.22)] outline-none transition duration-200 hover:border-amber-200/30 focus:border-amber-300/45 focus:ring-2 focus:ring-amber-300/18 ${buttonClassName}`}
       >
         <span className="flex min-w-0 items-center justify-between gap-3">
           <span className="min-w-0">
@@ -216,7 +216,7 @@ function ThemedSelect({
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 overflow-hidden rounded-3xl border border-amber-300/16 bg-stone-950/96 shadow-[0_24px_60px_rgba(12,10,9,0.55)] backdrop-blur-xl">
+        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 overflow-hidden rounded-3xl border border-amber-300/18 bg-[linear-gradient(180deg,#1c1917_0%,#141110_100%)] shadow-[0_24px_60px_rgba(12,10,9,0.58)]">
           <div className="max-h-80 space-y-1 overflow-y-auto p-2 dark-scrollbar" role="listbox" aria-labelledby={id}>
             {options.map(option => {
               const isSelected = option.value === value
@@ -235,7 +235,7 @@ function ThemedSelect({
                   }}
                   className={`flex w-full items-start justify-between gap-3 rounded-2xl border px-3 py-3 text-left transition ${
                     option.disabled
-                      ? 'cursor-not-allowed border-transparent bg-white/[0.03] text-stone-500'
+                      ? 'cursor-not-allowed border-transparent bg-stone-900 text-stone-500'
                       : optionToneClasses(option.accent, isSelected)
                   }`}
                 >
@@ -598,7 +598,7 @@ export default function BearVsBullPage() {
               options={tickerOptions}
               placeholder="Select a stock"
               containerClassName="min-w-[240px]"
-              buttonClassName="rounded-full py-2.5"
+              buttonClassName="rounded-full py-2"
             />
             <AuthButton variant="dark" />
           </div>
